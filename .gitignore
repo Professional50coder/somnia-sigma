@@ -14,20 +14,25 @@ node_modules/
 artifacts/
 cache/
 typechain-types/
-.venv/
+.vvenv/
 __pycache__/
+*.pyc
 
 # ---- frontend ----
 frontend/.next/
 frontend/out/
 frontend/node_modules/
+frontend/bun.lock
+frontend/tsconfig.tsbuildinfo
 
-# ---- scratch ----
+# ---- scratch / logs ----
 .oraclelogs.json
 .markets.json
 *.log
+*.pid
+.tmp/
 
-# ---- internal engineering notes: never for display, never in the submission ----
+# ---- internal notes: never in submission ----
 MISTAKES.md
 FINDINGS.md
 docs/internal/
