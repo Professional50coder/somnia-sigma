@@ -1,0 +1,33 @@
+# ---- SECRETS: never commit ----
+.secrets/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+wallet.json
+wallet.md
+WALLET.md
+
+# ---- deps / build ----
+node_modules/
+artifacts/
+cache/
+typechain-types/
+.venv/
+__pycache__/
+
+# ---- frontend ----
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+
+# ---- scratch ----
+.oraclelogs.json
+.markets.json
+*.log
+
+# ---- internal engineering notes: never for display, never in the submission ----
+MISTAKES.md
+FINDINGS.md
+docs/internal/

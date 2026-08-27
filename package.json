@@ -1,0 +1,31 @@
+{
+  "name": "somnia-sigma",
+  "version": "1.0.0",
+  "description": "Sigma - the fair-value layer for dreamDEX Event Contracts",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@somnia-chain/markets-sdk": "^0.28.1",
+    "@somnia-chain/reactivity": "^0.2.1",
+    "solady": "^0.1.26",
+    "viem": "^2.56.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
+    "@types/node": "^26.4.0",
+    "dotenv": "^17.4.2",
+    "hardhat": "^3.15.0",
+    "solc": "^0.8.28",
+    "ts-node": "^10.9.2",
+    "typescript": "^7.0.2"
+  }
+}
