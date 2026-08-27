@@ -1,0 +1,14 @@
+import "dotenv/config";
+import { readFileSync } from "node:fs";
+import { createPublicClient, createWalletClient, http, parseEther } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+const rpc = process.env.SOMNIA_TESTNET_RPC ?? "https://dream-rpc.somnia.network";
+const account = privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY);
+const client = createPublicClient({ transport:http(rpc) }); const wallet = createWalletClient({account,transport:http(rpc)});
+const deployment = JSON.parse(readFileSync("deployments/somniaTestnet.json","utf8"));
+const artifact = JSON.parse(readFileSync("artifacts/sigma/SigmaReactiveVol.json","utf8"));
+const pool = "0x3605f28aa7c50e7441211e77cb0762d49539326c";
+const topic = "0x2f0f7e3d58a217d311f516b216fa2f75081e17821bebb5f007fa57ff4e71f888";
+const fundHash = await wallet.sendTransaction({to:deployment.reactiveVol,value:parseEther("10")}); const fundReceipt=await client.waitForTransactionReceipt({hash:fundHash});
+const hash=await wallet.writeContract({address:deployment.reactiveVol,abi:artifact.abi,functionName:"subscribeTo",args:[pool,topic,pool,2_000_000_000n,10_000_000_000n,500_000n]}); const receipt=await client.waitForTransactionReceipt({hash});
+console.log(JSON.stringify({priceKey:pool,fundHash,fundGas:fundReceipt.gasUsed.toString(),subscriptionTx:hash,status:receipt.status,gasUsed:receipt.gasUsed.toString()},null,2));
