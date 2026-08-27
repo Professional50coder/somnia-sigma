@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Sigma">
+  <title>Sigma</title>
+  <!-- Transparent variant for favicons and dark surfaces. currentColor-driven. -->
+  <g fill="none" stroke="currentColor" stroke-linecap="round">
+    <line x1="4" y1="66" x2="116" y2="66" stroke-width="3" opacity="0.55"/>
+    <circle cx="52" cy="70" r="19" stroke-width="9"/>
+    <line x1="52" y1="51" x2="88" y2="51" stroke-width="9"/>
+  </g>
+</svg>

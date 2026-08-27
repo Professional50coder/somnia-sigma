@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Sigma">
+  <title>Sigma</title>
+
+  <!-- Tile -->
+  <rect width="120" height="120" rx="26" fill="#0B0D10"/>
+
+  <!-- The line to beat: the window's opening price. Full bleed, edge to edge. -->
+  <line x1="0" y1="66" x2="120" y2="66" stroke="#38BDF8" stroke-width="3"/>
+
+  <!-- Sigma, drawn over the line with a dark casing so the line reads as passing behind -->
+  <g stroke="#0B0D10" stroke-width="17" fill="none" stroke-linecap="round">
+    <circle cx="52" cy="70" r="19"/>
+    <line x1="52" y1="51" x2="88" y2="51"/>
+  </g>
+  <g stroke="#F2F4F7" stroke-width="9" fill="none" stroke-linecap="round">
+    <circle cx="52" cy="70" r="19"/>
+    <line x1="52" y1="51" x2="88" y2="51"/>
+  </g>
+</svg>
