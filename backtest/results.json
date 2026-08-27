@@ -1,0 +1,149 @@
+{
+  "source": "live:price-feed.dev.oracle.somnia.host BTC/USDC M1",
+  "totalBars": 3000,
+  "totalCheckpoints": 5620,
+  "lambdaBar": 0.15625560616666453,
+  "minSamples": 30,
+  "brier": 0.20714938741222902,
+  "logloss": 0.742554972282025,
+  "calibration": [
+    {
+      "bucket": 0,
+      "n": 562,
+      "meanPredicted": 0.0021173171256353893,
+      "realisedFreq": 0.14056939501779359
+    },
+    {
+      "bucket": 1,
+      "n": 562,
+      "meanPredicted": 0.06352824767709928,
+      "realisedFreq": 0.22419928825622776
+    },
+    {
+      "bucket": 2,
+      "n": 562,
+      "meanPredicted": 0.1994567869401108,
+      "realisedFreq": 0.30604982206405695
+    },
+    {
+      "bucket": 3,
+      "n": 562,
+      "meanPredicted": 0.3213925115851087,
+      "realisedFreq": 0.3594306049822064
+    },
+    {
+      "bucket": 4,
+      "n": 562,
+      "meanPredicted": 0.4123643078465648,
+      "realisedFreq": 0.4234875444839858
+    },
+    {
+      "bucket": 5,
+      "n": 562,
+      "meanPredicted": 0.4990696916773682,
+      "realisedFreq": 0.4092526690391459
+    },
+    {
+      "bucket": 6,
+      "n": 562,
+      "meanPredicted": 0.5960796611053637,
+      "realisedFreq": 0.5142348754448398
+    },
+    {
+      "bucket": 7,
+      "n": 562,
+      "meanPredicted": 0.7211001420524461,
+      "realisedFreq": 0.6067615658362989
+    },
+    {
+      "bucket": 8,
+      "n": 562,
+      "meanPredicted": 0.8943890330306556,
+      "realisedFreq": 0.7669039145907474
+    },
+    {
+      "bucket": 9,
+      "n": 562,
+      "meanPredicted": 0.9960299903911333,
+      "realisedFreq": 0.9145907473309609
+    }
+  ],
+  "tauBuckets": [
+    {
+      "label": "tau in (0.8,1.0]",
+      "n": 922,
+      "meanPredicted": 0.48054704173159346,
+      "realisedFreq": 0.46203904555314534,
+      "brier": 0.26042213041303813
+    },
+    {
+      "label": "tau in (0.5,0.8]",
+      "n": 1849,
+      "meanPredicted": 0.4695554586126175,
+      "realisedFreq": 0.4732287723093564,
+      "brier": 0.23745715857947094
+    },
+    {
+      "label": "tau in (0.2,0.5]",
+      "n": 1670,
+      "meanPredicted": 0.46880926076916296,
+      "realisedFreq": 0.4622754491017964,
+      "brier": 0.21365220279336528
+    },
+    {
+      "label": "tau in (0.0,0.2]",
+      "n": 1179,
+      "meanPredicted": 0.4667707213950239,
+      "realisedFreq": 0.46564885496183206,
+      "brier": 0.10874714854753761
+    }
+  ],
+  "byCadence": [
+    {
+      "cadence": "15m",
+      "n": 2758,
+      "meanPredicted": 0.4801225957043213,
+      "realisedFreq": 0.5228426395939086,
+      "brier": 0.1918540184876017
+    },
+    {
+      "cadence": "1h",
+      "n": 2862,
+      "meanPredicted": 0.46133069270020166,
+      "realisedFreq": 0.41229909154437455,
+      "brier": 0.22188894977914872
+    }
+  ],
+  "thresholdSweep": [
+    {
+      "thresholdBps": 100,
+      "trades": 996,
+      "winRate": 0.893574297188755,
+      "avgPnlPerTrade": -0.08642570281124598
+    },
+    {
+      "thresholdBps": 200,
+      "trades": 135,
+      "winRate": 0.9555555555555556,
+      "avgPnlPerTrade": -0.02444444444444443
+    },
+    {
+      "thresholdBps": 500,
+      "trades": 0,
+      "winRate": null,
+      "avgPnlPerTrade": null
+    },
+    {
+      "thresholdBps": 1000,
+      "trades": 0,
+      "winRate": null,
+      "avgPnlPerTrade": null
+    },
+    {
+      "thresholdBps": 1500,
+      "trades": 0,
+      "winRate": null,
+      "avgPnlPerTrade": null
+    }
+  ]
+}
