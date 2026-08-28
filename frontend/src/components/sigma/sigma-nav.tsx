@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SigmaLogo } from "@/components/icons/premonition-logo";
 import { Activity, BarChart3, Trophy, Zap } from "lucide-react";
+import { WalletConnect } from "@/components/sigma/wallet-connect";
+import { BotControls } from "@/components/sigma/bot-controls";
+import { ThemeToggle } from "@/components/sigma/theme-toggle";
 
 const navItems = [
   { href: "/", label: "Edge Radar", icon: Activity },
@@ -50,10 +53,15 @@ export function SigmaNav() {
             })}
           </nav>
 
-          {/* Status */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
-            <Zap className="w-3.5 h-3.5 text-accent" />
-            <span className="hidden sm:inline">Somnia Testnet</span>
+          {/* Right side: Bot + Wallet + Theme */}
+          <div className="flex items-center gap-2 shrink-0">
+            <BotControls />
+            <WalletConnect />
+            <ThemeToggle />
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-1 pl-2 border-l border-border">
+              <Zap className="w-3.5 h-3.5 text-accent" />
+              <span className="hidden sm:inline">Somnia Testnet</span>
+            </div>
           </div>
         </div>
       </div>

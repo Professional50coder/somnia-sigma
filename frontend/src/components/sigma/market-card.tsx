@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Star, TrendingUp, TrendingDown } from "lucide-react";
+import { Star, TrendingUp, TrendingDown, Info } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { WindowWithFair } from "@/lib/types";
 import { formatProbability, formatEdge, formatCountdown, timeAgo } from "@/lib/format";
 import { edgeColor, edgeBgColor } from "@/lib/colors";
@@ -68,10 +69,19 @@ export function MarketCard({ window: w, isWatched, onToggleWatch }: MarketCardPr
           </div>
           <div className="text-right">
             <div className="sigma-label">Edge</div>
-            <div className={`flex items-center gap-1 font-mono text-lg font-semibold ${edgeColor(fv.edgeBps)}`}>
-              {edgeDir ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-              {formatEdge(fv.edgeBps)}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={`flex items-center gap-1 font-mono text-lg font-semibold ${edgeColor(fv.edgeBps)} cursor-help`}>
+                  {edgeDir ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                  {formatEdge(fv.edgeBps)}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                {fv.edgeBps > 0
+                  ? `Book is ${formatEdge(fv.edgeBps)} below fair value — potential buy`
+                  : `Book is ${formatEdge(Math.abs(fv.edgeBps))} above fair value — potential sell`}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       ) : (
@@ -84,9 +94,14 @@ export function MarketCard({ window: w, isWatched, onToggleWatch }: MarketCardPr
       )}
 
       {hasEdge && (
-        <div className={`mt-2 px-2 py-1 rounded text-xs font-medium ${edgeBgColor(fv!.edgeBps)} ${edgeColor(fv!.edgeBps)}`}>
-          {fv!.edgeBps > 0 ? "Undervalued" : "Overvalued"} —               Kelly {formatProbability(fv!.kellyWad > BigInt(0) ? Number(fv!.kellyWad) / 1e16 : 0)}
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`mt-2 px-2 py-1 rounded text-xs font-medium cursor-help ${edgeBgColor(fv!.edgeBps)} ${edgeColor(fv!.edgeBps)}`}>
+              {fv!.edgeBps > 0 ? "Undervalued" : "Overvalued"} —               Kelly {formatProbability(fv!.kellyWad > BigInt(0) ? Number(fv!.kellyWad) / 1e16 : 0)}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>Kelly fraction = optimal bet size as % of bankroll</TooltipContent>
+        </Tooltip>
       )}
     </motion.div>
   );

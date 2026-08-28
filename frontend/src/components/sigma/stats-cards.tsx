@@ -1,11 +1,23 @@
 "use client";
 
 import { TrendingUp, Target, BarChart3, Activity, Zap, Shield } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/motion";
 import type { PerformanceStats } from "@/lib/types";
 
 interface StatsCardsProps {
   stats: PerformanceStats;
 }
+
+const tooltips: Record<string, string> = {
+  "Total Trades": "Number of windows with fair value computed",
+  "Win Rate": "Percentage of windows where edge was positive",
+  "Total PnL": "Cumulative profit/loss from settled trades",
+  "Sharpe Ratio": "Risk-adjusted return (higher = better)",
+  "Max Drawdown": "Largest peak-to-trough decline",
+  "Avg Edge": "Average edge across all priced windows (in basis points)",
+};
 
 export function StatsCards({ stats }: StatsCardsProps) {
   const cards = [
@@ -48,18 +60,30 @@ export function StatsCards({ stats }: StatsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"
+    >
       {cards.map((card) => (
-        <div key={card.label} className="sigma-card p-3">
-          <div className="flex items-center gap-2 mb-1.5">
-            <card.icon className={`w-3.5 h-3.5 ${card.color}`} />
-            <span className="sigma-label">{card.label}</span>
-          </div>
-          <div className={`font-mono text-lg font-semibold ${card.color}`}>
-            {card.value}
-          </div>
-        </div>
+        <motion.div key={card.label} variants={staggerItem} whileHover={{ scale: 1.02, y: -2 }}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="sigma-card p-3 cursor-help">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <card.icon className={`w-3.5 h-3.5 ${card.color}`} />
+                  <span className="sigma-label">{card.label}</span>
+                </div>
+                <div className={`font-mono text-lg font-semibold ${card.color}`}>
+                  {card.value}
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>{tooltips[card.label]}</TooltipContent>
+          </Tooltip>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 }
