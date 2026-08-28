@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { BarChart3, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { BarChart3, AlertTriangle, TrendingUp, Target, Activity, Info } from "lucide-react";
 import { SigmaNav } from "@/components/sigma/sigma-nav";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 interface CalibrationBucket {
   bucket: number;
@@ -39,6 +44,87 @@ interface BacktestResults {
   byCadence: CadenceResult[];
 }
 
+function AnimatedBar({ predicted, realised, delay }: { predicted: number; realised: number; delay: number }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
+
+  const barWidth = Math.max(2, realised * 100);
+  const predWidth = Math.max(2, predicted * 100);
+
+  return (
+    <div className="flex-1 relative h-5 bg-secondary/50 rounded overflow-hidden group cursor-pointer">
+      <motion.div
+        initial={{ width: 0 }}
+        animate={{ width: `${barWidth}%` }}
+        transition={{ duration: 0.6, delay: delay / 1000, ease: "easeOut" }}
+        className="absolute left-0 top-0 h-full bg-primary/60 rounded"
+      />
+      <motion.div
+        initial={{ width: 0 }}
+        animate={{ width: `${predWidth}%` }}
+        transition={{ duration: 0.6, delay: delay / 1000 + 0.1, ease: "easeOut" }}
+        className="absolute left-0 top-0 h-full border-r-2 border-accent"
+      />
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-[10px] font-mono text-foreground">
+        Predicted {(predicted * 100).toFixed(1)}% → Realised {(realised * 100).toFixed(1)}%
+      </div>
+    </div>
+  );
+}
+
+function CalibrationCard({ b, delay }: { b: CalibrationBucket; delay: number }) {
+  const gap = b.meanPredicted - b.realisedFreq;
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: delay / 1000 }}
+      className="flex items-center gap-3 text-xs font-mono"
+    >
+      <span className="w-6 text-right text-muted-foreground">{b.bucket}</span>
+      <AnimatedBar predicted={b.meanPredicted} realised={b.realisedFreq} delay={delay} />
+      <span className="w-16 text-right text-muted-foreground">
+        {(b.meanPredicted * 100).toFixed(1)}%
+      </span>
+      <span className="w-16 text-right text-foreground">
+        {(b.realisedFreq * 100).toFixed(1)}%
+      </span>
+      <span className={`w-16 text-right font-medium ${gap > 0 ? "text-negative" : "text-positive"}`}>
+        {gap > 0 ? "+" : ""}{(gap * 100).toFixed(1)}%
+      </span>
+      <span className="w-12 text-right text-muted-foreground">
+        n={b.n}
+      </span>
+    </motion.div>
+  );
+}
+
+function SkeletonBacktest() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="sigma-card p-3">
+            <Skeleton className="h-3 w-20 mb-2" />
+            <Skeleton className="h-6 w-16" />
+          </div>
+        ))}
+      </div>
+      <div className="sigma-card p-5">
+        <Skeleton className="h-4 w-48 mb-4" />
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-5 w-full" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BacktestPage() {
   const [results, setResults] = useState<BacktestResults | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,6 +135,7 @@ export default function BacktestPage() {
         const res = await fetch("/api/backtest");
         if (res.ok) {
           setResults(await res.json());
+          toast.success("Backtest loaded", { description: "Calibration data ready" });
         }
       } catch {
         // keep null
@@ -80,177 +167,194 @@ export default function BacktestPage() {
             </div>
 
             {loading ? (
-              <div className="text-center py-12">
-                <BarChart3 className="w-8 h-8 text-muted-foreground mx-auto mb-2 animate-pulse" />
-                <p className="text-sm text-muted-foreground">Loading backtest results...</p>
-              </div>
+              <SkeletonBacktest />
             ) : !results ? (
               <div className="text-center py-12">
                 <BarChart3 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No backtest results found. Run the backtest first.</p>
               </div>
             ) : (
-              <>
+              <Tabs defaultValue="calibration" className="space-y-6">
+                <TabsList>
+                  <TabsTrigger value="calibration" className="gap-1.5">
+                    <Target className="w-3.5 h-3.5" />
+                    Calibration
+                  </TabsTrigger>
+                  <TabsTrigger value="time" className="gap-1.5">
+                    <Activity className="w-3.5 h-3.5" />
+                    By Time (τ)
+                  </TabsTrigger>
+                  <TabsTrigger value="cadence" className="gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    By Cadence
+                  </TabsTrigger>
+                </TabsList>
+
                 {/* Summary cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                  <div className="sigma-card p-3">
-                    <div className="sigma-label mb-1">Brier Score</div>
-                    <div className="font-mono text-lg font-semibold text-foreground">
-                      {results.brier.toFixed(4)}
-                    </div>
-                  </div>
-                  <div className="sigma-card p-3">
-                    <div className="sigma-label mb-1">Log Loss</div>
-                    <div className="font-mono text-lg font-semibold text-foreground">
-                      {results.logloss.toFixed(4)}
-                    </div>
-                  </div>
-                  <div className="sigma-card p-3">
-                    <div className="sigma-label mb-1">Checkpoints</div>
-                    <div className="font-mono text-lg font-semibold text-foreground">
-                      {results.totalCheckpoints.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="sigma-card p-3">
-                    <div className="sigma-label mb-1">BTC Bars</div>
-                    <div className="font-mono text-lg font-semibold text-foreground">
-                      {results.totalBars.toLocaleString()}
-                    </div>
-                  </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: "Brier Score", value: results.brier.toFixed(4), good: results.brier < 0.25 },
+                    { label: "Log Loss", value: results.logloss.toFixed(4), good: results.logloss < 0.7 },
+                    { label: "Checkpoints", value: results.totalCheckpoints.toLocaleString(), good: true },
+                    { label: "BTC Bars", value: results.totalBars.toLocaleString(), good: true },
+                  ].map((card, i) => (
+                    <motion.div
+                      key={card.label}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.08 }}
+                      className="sigma-card p-3"
+                    >
+                      <div className="sigma-label mb-1">{card.label}</div>
+                      <div className={`font-mono text-lg font-semibold ${card.good ? "text-foreground" : "text-yellow-500"}`}>
+                        {card.value}
+                      </div>
+                      {card.label === "Brier Score" && (
+                        <Progress value={Math.max(0, (1 - results.brier) * 100)} className="mt-2 h-1" />
+                      )}
+                      {card.label === "Log Loss" && (
+                        <Progress value={Math.max(0, (1 - results.logloss) * 100)} className="mt-2 h-1" />
+                      )}
+                    </motion.div>
+                  ))}
                 </div>
 
-                {/* Calibration curve */}
-                <div className="sigma-card p-5 mb-6">
-                  <h3 className="text-sm font-medium text-foreground mb-4">Calibration Curve — Predicted vs Realised</h3>
-                  <div className="space-y-2">
-                    {results.calibration.map((b) => {
-                      const gap = b.meanPredicted - b.realisedFreq;
-                      const barWidth = Math.max(2, b.realisedFreq * 100);
-                      return (
-                        <div key={b.bucket} className="flex items-center gap-3 text-xs font-mono">
-                          <span className="w-6 text-right text-muted-foreground">{b.bucket}</span>
-                          <div className="flex-1 relative h-4 bg-secondary/50 rounded overflow-hidden">
-                            <div
-                              className="absolute left-0 top-0 h-full bg-primary/60 rounded"
-                              style={{ width: `${barWidth}%` }}
-                            />
-                            <div
-                              className="absolute left-0 top-0 h-full border-r-2 border-accent"
-                              style={{ width: `${Math.max(2, b.meanPredicted * 100)}%` }}
-                            />
-                          </div>
-                          <span className="w-16 text-right text-muted-foreground">
-                            {(b.meanPredicted * 100).toFixed(1)}%
-                          </span>
-                          <span className="w-16 text-right text-foreground">
-                            {(b.realisedFreq * 100).toFixed(1)}%
-                          </span>
-                          <span className={`w-16 text-right ${gap > 0 ? "text-negative" : "text-positive"}`}>
-                            {gap > 0 ? "+" : ""}{(gap * 100).toFixed(1)}%
-                          </span>
-                          <span className="w-12 text-right text-muted-foreground">
-                            n={b.n}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center gap-6 mt-3 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-2 bg-primary/60 rounded" /> Realised
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-0.5 h-2 bg-accent" /> Predicted
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tail overconfidence warning */}
-                <div className="sigma-card p-4 mb-6 border-l-2 border-yellow-500">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
-                    <div>
-                      <div className="text-sm font-medium text-foreground">Tail Overconfidence Found</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        The model is systematically overconfident in the tails — predicted ~0.2% at the low end
-                        realises ~14%; predicted ~99.6% at the high end realises ~91.5%. Well-calibrated in
-                        the middle (buckets 3–6). This is the expected failure mode of zero-drift GBM
-                        understating fat tails. Reported as found, not tuned away.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tau buckets */}
-                <div className="sigma-card overflow-hidden mb-6">
-                  <div className="px-4 py-3 border-b border-border">
-                    <h3 className="text-sm font-medium text-foreground">By Time Remaining (τ)</h3>
-                  </div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">τ Bucket</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Checkpoints</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Mean Predicted</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Realised</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Brier</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.tauBuckets.map((b) => (
-                        <tr key={b.label} className="border-b border-border/50">
-                          <td className="px-4 py-2.5 text-foreground">{b.label}</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.n}</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.meanPredicted * 100).toFixed(1)}%</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.realisedFreq * 100).toFixed(1)}%</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.brier.toFixed(4)}</td>
-                        </tr>
+                {/* Calibration Tab */}
+                <TabsContent value="calibration" className="space-y-6 mt-0">
+                  <div className="sigma-card p-5">
+                    <h3 className="text-sm font-medium text-foreground mb-4">Calibration Curve — Predicted vs Realised</h3>
+                    <div className="space-y-2">
+                      {results.calibration.map((b, i) => (
+                        <CalibrationCard key={b.bucket} b={b} delay={i * 60} />
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* By cadence */}
-                <div className="sigma-card overflow-hidden mb-6">
-                  <div className="px-4 py-3 border-b border-border">
-                    <h3 className="text-sm font-medium text-foreground">By Window Cadence</h3>
+                    </div>
+                    <div className="flex items-center gap-6 mt-3 text-[11px] text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-2 bg-primary/60 rounded" /> Realised
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-0.5 h-2 bg-accent" /> Predicted
+                      </span>
+                    </div>
                   </div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left px-4 py-2 font-medium text-muted-foreground">Cadence</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Checkpoints</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Mean Predicted</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Realised</th>
-                        <th className="text-right px-4 py-2 font-medium text-muted-foreground">Brier</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.byCadence.map((b) => (
-                        <tr key={b.cadence} className="border-b border-border/50">
-                          <td className="px-4 py-2.5 text-foreground font-medium">{b.cadence}</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.n}</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.meanPredicted * 100).toFixed(1)}%</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.realisedFreq * 100).toFixed(1)}%</td>
-                          <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.brier.toFixed(4)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
 
-                {/* Assumptions */}
-                <div className="sigma-card p-4">
-                  <h3 className="text-sm font-medium text-foreground mb-2">Assumptions & Limitations</h3>
-                  <ul className="text-xs text-muted-foreground space-y-1">
-                    <li>~2 days of BTC/USDC M1 candles (3,000 bars). Directional evidence, not a large-sample proof.</li>
-                    <li>~230 independent windows (not 5,620 — checkpoints within a window share settlement outcome).</li>
-                    <li>Volatility: single continuous EWMA (λ converted by half-life, not copied raw).</li>
-                    <li>Model: Φ(d₂) zero-drift GBM, terminal settlement. Known to understate fat tails.</li>
-                    <li>Policy simulation discarded — synthetic book proxy was self-correlated with the model.</li>
-                  </ul>
-                </div>
-              </>
+                  {/* Tail overconfidence */}
+                  <div className="sigma-card p-4 border-l-2 border-yellow-500">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="text-sm font-medium text-foreground">Tail Overconfidence Found</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          The model is systematically overconfident in the tails — predicted ~0.2% at the low end
+                          realises ~14%; predicted ~99.6% at the high end realises ~91.5%. Well-calibrated in
+                          the middle (buckets 3–6). This is the expected failure mode of zero-drift GBM
+                          understating fat tails. Reported as found, not tuned away.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Time Remaining Tab */}
+                <TabsContent value="time" className="mt-0">
+                  <div className="sigma-card overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border">
+                      <h3 className="text-sm font-medium text-foreground">By Time Remaining (τ)</h3>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">τ Bucket</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Checkpoints</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Mean Predicted</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Realised</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Brier</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Quality</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {results.tauBuckets.map((b, i) => (
+                          <motion.tr
+                            key={b.label}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.05 }}
+                            className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
+                          >
+                            <td className="px-4 py-2.5 text-foreground">{b.label}</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.n}</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.meanPredicted * 100).toFixed(1)}%</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.realisedFreq * 100).toFixed(1)}%</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.brier.toFixed(4)}</td>
+                            <td className="px-4 py-2.5 text-right">
+                              <Progress value={Math.max(0, (1 - b.brier) * 100)} className="h-1.5 w-16 ml-auto" />
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </TabsContent>
+
+                {/* Cadence Tab */}
+                <TabsContent value="cadence" className="mt-0">
+                  <div className="sigma-card overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border">
+                      <h3 className="text-sm font-medium text-foreground">By Window Cadence</h3>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left px-4 py-2 font-medium text-muted-foreground">Cadence</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Checkpoints</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Mean Predicted</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Realised</th>
+                          <th className="text-right px-4 py-2 font-medium text-muted-foreground">Brier</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {results.byCadence.map((b, i) => (
+                          <motion.tr
+                            key={b.cadence}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.05 }}
+                            className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
+                          >
+                            <td className="px-4 py-2.5 text-foreground font-medium">{b.cadence}</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.n}</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.meanPredicted * 100).toFixed(1)}%</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.realisedFreq * 100).toFixed(1)}%</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.brier.toFixed(4)}</td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </TabsContent>
+
+                {/* Assumptions - Accordion */}
+                <Accordion type="single" collapsible className="sigma-card">
+                  <AccordionItem value="assumptions" className="border-0">
+                    <AccordionTrigger className="px-4 py-3 text-sm font-medium text-foreground hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <Info className="w-4 h-4 text-muted-foreground" />
+                        Assumptions & Limitations
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4">
+                      <ul className="text-xs text-muted-foreground space-y-1.5 pb-2">
+                        <li>~2 days of BTC/USDC M1 candles (3,000 bars). Directional evidence, not a large-sample proof.</li>
+                        <li>~230 independent windows (not 5,620 — checkpoints within a window share settlement outcome).</li>
+                        <li>Volatility: single continuous EWMA (λ converted by half-life, not copied raw).</li>
+                        <li>Model: Φ(d₂) zero-drift GBM, terminal settlement. Known to understate fat tails.</li>
+                        <li>Policy simulation discarded — synthetic book proxy was self-correlated with the model.</li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </Tabs>
             )}
           </motion.div>
         </div>

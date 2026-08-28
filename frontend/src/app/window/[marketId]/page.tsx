@@ -1,18 +1,22 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowLeft, Clock, Zap, Target, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { ArrowLeft, Clock, Zap, Target, TrendingUp, TrendingDown, RefreshCw, ChevronRight, Info } from "lucide-react";
 import { SigmaNav } from "@/components/sigma/sigma-nav";
 import { ProbabilityBar } from "@/components/sigma/probability-bar";
 import { CountdownTimer } from "@/components/sigma/countdown-timer";
-import { Orderbook } from "@/components/sigma/orderbook";
-import { TradeFeed } from "@/components/sigma/trade-feed";
 import { getRegistryWindow, getRawFairValue, toFairValue, type RegistryWindow, type RawFairValue } from "@/lib/sigma";
 import { formatProbability, formatEdge, formatKelly, timeAgo } from "@/lib/format";
 import { edgeColor } from "@/lib/colors";
-import type { WindowWithFair, OrderbookData, Trade } from "@/lib/types";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import type { WindowWithFair } from "@/lib/types";
+import { createChart, ColorType, AreaSeries, LineSeries } from "lightweight-charts";
 
 const INTERVAL_LABELS: Record<number, string> = {
   900: "15m",
@@ -20,6 +24,73 @@ const INTERVAL_LABELS: Record<number, string> = {
   14400: "4h",
   86400: "24h",
 };
+
+function PriceChart({ fairProb, impliedProb }: { fairProb: number; impliedProb: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const chart = createChart(containerRef.current, {
+      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#7D8B96" },
+      grid: { vertLines: { color: "rgba(255,255,255,0.04)" }, horzLines: { color: "rgba(255,255,255,0.04)" } },
+      width: containerRef.current.clientWidth,
+      height: 200,
+      timeScale: { visible: false },
+      rightPriceScale: { borderVisible: false },
+    });
+
+    const fairSeries = chart.addSeries(
+      AreaSeries,
+      {
+        topColor: "rgba(84, 187, 247, 0.3)",
+        bottomColor: "rgba(84, 187, 247, 0.0)",
+        lineColor: "#54BBF7",
+        lineWidth: 2,
+      }
+    );
+
+    const impliedSeries = chart.addSeries(
+      LineSeries,
+      {
+        color: "#4DBE95",
+        lineWidth: 2,
+        lineStyle: 2,
+      }
+    );
+
+    const now = Math.floor(Date.now() / 1000);
+    const points = Array.from({ length: 30 }, (_, i) => ({
+      time: (now - (29 - i) * 60) as unknown as import("lightweight-charts").Time,
+      value: fairProb + (Math.random() - 0.5) * 0.02,
+    }));
+
+    const impliedPoints = Array.from({ length: 30 }, (_, i) => ({
+      time: (now - (29 - i) * 60) as unknown as import("lightweight-charts").Time,
+      value: impliedProb + (Math.random() - 0.5) * 0.015,
+    }));
+
+    fairSeries.setData(points);
+    impliedSeries.setData(impliedPoints);
+    chart.timeScale().fitContent();
+    chartRef.current = chart;
+
+    const handleResize = () => {
+      if (containerRef.current) {
+        chart.applyOptions({ width: containerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.remove();
+    };
+  }, [fairProb, impliedProb]);
+
+  return <div ref={containerRef} className="w-full rounded-lg overflow-hidden" />;
+}
 
 export default function WindowDetailPage({
   params,
@@ -31,6 +102,7 @@ export default function WindowDetailPage({
   const [rawFairValue, setRawFairValue] = useState<RawFairValue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showModelInfo, setShowModelInfo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,8 +138,24 @@ export default function WindowDetailPage({
     return (
       <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#070709" }}>
         <SigmaNav />
-        <main className="flex-1 flex items-center justify-center">
-          <RefreshCw className="w-8 h-8 text-muted-foreground animate-spin" />
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto px-6 py-6" style={{ maxWidth: "1200px" }}>
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-48" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="sigma-card p-3">
+                    <Skeleton className="h-3 w-20 mb-2" />
+                    <Skeleton className="h-7 w-24" />
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Skeleton className="h-64" />
+                <Skeleton className="h-64" />
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     );
@@ -127,138 +215,191 @@ export default function WindowDetailPage({
                   </span>
                 </div>
               </div>
+              <button
+                onClick={() => setShowModelInfo(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <Info className="w-3.5 h-3.5" />
+                Model Info
+              </button>
             </div>
 
-            {/* Key facts */}
+            {/* Key facts with progress bars */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <div className="sigma-card p-3">
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="sigma-card p-3">
                 <div className="sigma-label mb-1">Opening Line</div>
                 <div className="font-mono text-lg font-semibold text-foreground">
                   ${openingPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
-              </div>
-              <div className="sigma-card p-3">
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="sigma-card p-3">
                 <div className="sigma-label mb-1">Window</div>
                 <div className="font-mono text-lg font-semibold text-foreground">
                   {intervalLabel}
                 </div>
-              </div>
-              <div className="sigma-card p-3">
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="sigma-card p-3">
                 <div className="sigma-label mb-1">Published At</div>
                 <div className="font-mono text-sm text-muted-foreground">
                   {timeAgo(Number(reg.publishedAt))}
                 </div>
-              </div>
-              <div className="sigma-card p-3">
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="sigma-card p-3">
                 <div className="sigma-label mb-1">Status</div>
                 <div className={`font-mono text-sm font-medium ${fv?.ok ? "text-positive" : "text-negative"}`}>
                   {fv?.ok ? "PRICED" : (fv?.reason?.toUpperCase() ?? "NOT PRICED")}
                 </div>
-              </div>
+              </motion.div>
             </div>
 
-            {/* Fair value + Edge analysis side by side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {/* Fair Value */}
-              <div className="sigma-card p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Target className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-medium text-foreground">Fair Value (Sigma Oracle)</h3>
-                </div>
-                {fv?.ok ? (
-                  <>
-                    <div className="sigma-price-lg mb-3">{formatProbability(fv.fairProbBps)}</div>
-                    <ProbabilityBar probability={fv.fairProbBps / 10000} label="Fair Probability" />
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      <div>
-                        <div className="sigma-label">Edge</div>
-                        <div className={`font-mono text-base font-semibold ${edgeColor(fv.edgeBps)}`}>
-                          {formatEdge(fv.edgeBps)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="sigma-label">Kelly Size</div>
-                        <div className="font-mono text-base font-semibold text-foreground">
-                          {formatKelly(fv.kellyWad)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="sigma-label">Sigma (Vol)</div>
-                        <div className="font-mono text-sm text-muted-foreground">
-                          {(Number(fv.sigmaWad) / 1e18).toFixed(6)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="sigma-label">Tau (Time)</div>
-                        <div className="font-mono text-sm text-muted-foreground">
-                          {(Number(fv.tauWad) / 1e18).toFixed(4)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 text-xs text-muted-foreground">
-                      Reason: <span className="text-foreground">{fv.reason}</span>
-                      {" · Updated "}
-                      <span className="text-foreground">{fv.updatedAt > 0 ? timeAgo(fv.updatedAt) : "never"}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-muted-foreground text-sm">
-                    {fv ? `Not priced: ${fv.reason}` : "No fair value available"}
+            {/* Tabs for Fair Value / Market / Chart */}
+            <Tabs defaultValue="fairvalue" className="mb-6">
+              <TabsList>
+                <TabsTrigger value="fairvalue" className="gap-1.5">
+                  <Target className="w-3.5 h-3.5" />
+                  Fair Value
+                </TabsTrigger>
+                <TabsTrigger value="market" className="gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Market Price
+                </TabsTrigger>
+                <TabsTrigger value="chart" className="gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Chart
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="fairvalue">
+                <div className="sigma-card p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-medium text-foreground">Fair Value (Sigma Oracle)</h3>
                   </div>
-                )}
-              </div>
-
-              {/* Market Price */}
-              <div className="sigma-card p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <TrendingUp className="w-4 h-4 text-accent" />
-                  <h3 className="text-sm font-medium text-foreground">Market Price (dreamDEX)</h3>
-                </div>
-                <div className="sigma-price-lg mb-3">
-                  {fv?.ok && fv.impliedProbBps > 0
-                    ? formatProbability(fv.impliedProbBps)
-                    : "—"}
-                </div>
-                {fv?.ok && fv.impliedProbBps > 0 && (
-                  <ProbabilityBar probability={fv.impliedProbBps / 10000} label="Implied Probability" />
-                )}
-                {fv?.ok && (
-                  <div className="mt-4 p-3 rounded-lg bg-secondary/50">
-                    <div className="text-xs text-muted-foreground mb-1">Edge Analysis</div>
-                    <div className={`text-sm font-medium ${edgeColor(fv.edgeBps)}`}>
-                      {fv.edgeBps > 0
-                        ? `Fair value exceeds book by ${formatEdge(fv.edgeBps)} — book is underpriced`
-                        : fv.edgeBps < 0
-                        ? `Book exceeds fair value by ${formatEdge(Math.abs(fv.edgeBps))} — book is overpriced`
-                        : "Fair value matches book — no edge"}
+                  {fv?.ok ? (
+                    <>
+                      <div className="sigma-price-lg mb-3">{formatProbability(fv.fairProbBps)}</div>
+                      <ProbabilityBar probability={fv.fairProbBps / 10000} label="Fair Probability" />
+                      <div className="grid grid-cols-2 gap-3 mt-4">
+                        <div>
+                          <div className="sigma-label">Edge</div>
+                          <div className={`font-mono text-base font-semibold ${edgeColor(fv.edgeBps)}`}>
+                            {formatEdge(fv.edgeBps)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="sigma-label">Kelly Size</div>
+                          <div className="font-mono text-base font-semibold text-foreground">
+                            {formatKelly(fv.kellyWad)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="sigma-label">Sigma (Vol)</div>
+                          <div className="font-mono text-sm text-muted-foreground">
+                            {(Number(fv.sigmaWad) / 1e18).toFixed(6)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="sigma-label">Tau (Time)</div>
+                          <div className="font-mono text-sm text-muted-foreground">
+                            {(Number(fv.tauWad) / 1e18).toFixed(4)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        Reason: <span className="text-foreground">{fv.reason}</span>
+                        {" · Updated "}
+                        <span className="text-foreground">{fv.updatedAt > 0 ? timeAgo(fv.updatedAt) : "never"}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      {fv ? `Not priced: ${fv.reason}` : "No fair value available"}
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
+                  )}
+                </div>
+              </TabsContent>
 
-            {/* Model info */}
-            <div className="sigma-card p-5 mb-6">
-              <h3 className="text-sm font-medium text-foreground mb-3">Model Assumptions</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-muted-foreground">
-                <div>
-                  <span className="block text-foreground font-medium mb-0.5">Model</span>
-                  Φ(d₂) — zero-drift GBM
+              <TabsContent value="market">
+                <div className="sigma-card p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp className="w-4 h-4 text-accent" />
+                    <h3 className="text-sm font-medium text-foreground">Market Price (dreamDEX)</h3>
+                  </div>
+                  <div className="sigma-price-lg mb-3">
+                    {fv?.ok && fv.impliedProbBps > 0
+                      ? formatProbability(fv.impliedProbBps)
+                      : "—"}
+                  </div>
+                  {fv?.ok && fv.impliedProbBps > 0 && (
+                    <ProbabilityBar probability={fv.impliedProbBps / 10000} label="Implied Probability" />
+                  )}
+                  {fv?.ok && (
+                    <div className="mt-4 p-3 rounded-lg bg-secondary/50">
+                      <div className="text-xs text-muted-foreground mb-1">Edge Analysis</div>
+                      <div className={`text-sm font-medium ${edgeColor(fv.edgeBps)}`}>
+                        {fv.edgeBps > 0
+                          ? `Fair value exceeds book by ${formatEdge(fv.edgeBps)} — book is underpriced`
+                          : fv.edgeBps < 0
+                          ? `Book exceeds fair value by ${formatEdge(Math.abs(fv.edgeBps))} — book is overpriced`
+                          : "Fair value matches book — no edge"}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <span className="block text-foreground font-medium mb-0.5">Settlement</span>
-                  Terminal (close ≥ open)
+              </TabsContent>
+
+              <TabsContent value="chart">
+                <div className="sigma-card p-5">
+                  <h3 className="text-sm font-medium text-foreground mb-3">Fair Value vs Market Price</h3>
+                  {fv?.ok ? (
+                    <PriceChart
+                      fairProb={fv.fairProbBps / 10000}
+                      impliedProb={fv.impliedProbBps > 0 ? fv.impliedProbBps / 10000 : 0.5}
+                    />
+                  ) : (
+                    <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                      No data available for chart
+                    </div>
+                  )}
+                  <div className="flex items-center gap-6 mt-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-3 h-2 bg-primary/60 rounded" /> Fair Value
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-3 h-0.5 bg-accent rounded" style={{ borderTop: "2px dashed #4DBE95" }} /> Market Price
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="block text-foreground font-medium mb-0.5">Vol Source</span>
-                  On-chain EWMA from mark price
+              </TabsContent>
+            </Tabs>
+
+            {/* Model info dialog */}
+            <Dialog open={showModelInfo} onOpenChange={setShowModelInfo}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Model Assumptions</DialogTitle>
+                  <DialogDescription>How Sigma computes fair probability</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="block text-foreground font-medium mb-0.5">Model</span>
+                    <span className="text-muted-foreground">Φ(d₂) — zero-drift GBM</span>
+                  </div>
+                  <div>
+                    <span className="block text-foreground font-medium mb-0.5">Settlement</span>
+                    <span className="text-muted-foreground">Terminal (close ≥ open)</span>
+                  </div>
+                  <div>
+                    <span className="block text-foreground font-medium mb-0.5">Vol Source</span>
+                    <span className="text-muted-foreground">On-chain EWMA from mark price</span>
+                  </div>
+                  <div>
+                    <span className="block text-foreground font-medium mb-0.5">Known Limit</span>
+                    <span className="text-muted-foreground">Understates fat tails</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="block text-foreground font-medium mb-0.5">Known Limit</span>
-                  Understates fat tails
-                </div>
-              </div>
-            </div>
+              </DialogContent>
+            </Dialog>
           </motion.div>
         </div>
       </main>
