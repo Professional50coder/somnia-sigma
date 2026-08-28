@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,11 +29,15 @@ const RootLayout = ({
   children: React.ReactNode;
 }>) => {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <TooltipProvider delayDuration={200}>
+            {children}
+          </TooltipProvider>
+        </Providers>
         <Toaster />
       </body>
     </html>

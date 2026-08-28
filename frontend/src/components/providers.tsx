@@ -1,6 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "next-themes";
 import { useState, type ReactNode } from "react";
 import { WebSocketProvider } from "@/providers/websocket-provider";
 
@@ -10,12 +11,8 @@ export const Providers = ({ children }: { children: ReactNode }) => {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Backend cache TTL is 5 minutes, so data is fresh for that long
-            staleTime: 5 * 60 * 1000, // 5 minutes
-            // No automatic refetch - rely on backend cache freshness
-            // Real-time data comes via WebSocket anyway
+            staleTime: 5 * 60 * 1000,
             refetchInterval: false,
-            // Refetch on window focus for stale data
             refetchOnWindowFocus: "always",
           },
         },
@@ -24,7 +21,9 @@ export const Providers = ({ children }: { children: ReactNode }) => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <WebSocketProvider>{children}</WebSocketProvider>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <WebSocketProvider>{children}</WebSocketProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };
