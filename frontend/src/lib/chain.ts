@@ -1,5 +1,5 @@
 import { createPublicClient, http, parseAbi } from "viem";
-import deployment from "../../deployments/somniaTestnet.json";
+import deployment from "../../../deployments/somniaTestnet.json";
 
 export const CHAIN_ID = 50312;
 export const RPC_URL =

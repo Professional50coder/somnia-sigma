@@ -27,36 +27,18 @@ on-chain, for free, for any contract to read.
 
 Full reasoning, the competitive read, and the pitch script: [`docs/VALUE.md`](docs/VALUE.md).
 
-## Status — read this before anything else below
+## What is live vs seeded vs replayed
 
-This is an active hackathon build. Every claim here is either backed by a
-transaction hash or explicitly marked not-yet-proven. See
-[`docs/STATUS.md`](docs/STATUS.md) and [`docs/CHECKLIST.md`](docs/CHECKLIST.md)
-for the live, itemized state.
-
-| | |
-|---|---|
-| ✅ Live on Somnia testnet | All 5 contracts deployed to Shannon (chain 50312) — see [`docs/DEPLOYMENT-LEDGER.md`](docs/DEPLOYMENT-LEDGER.md) for every address and tx hash |
-| ✅ Pricing engine | `Φ(d₂)`, edge, break-even, Kelly — validated against SciPy, 65 tests green |
-| ✅ Volatility estimator | Time-aware EWMA, on-chain, tested |
-| ✅ Frontend | Edge Radar, Window Detail, Track Record, Backtest — built with dark terminal aesthetic, reading live contracts |
-| ✅ Backtest | Real calibration curve from 3,000+ live BTC candles, ~230 independent windows, honest tail-miscalibration finding |
-| 🔶 Oracle integration | DIA / Protofire price feeds integrated for spot data |
-| 🔶 Reactivity subscription | Registered on-chain correctly (confirmed via `getSubscriptionInfo`), **live delivery not yet confirmed** — under active investigation |
-| ⬜ Bot strategy | ec-sigma strategy/maker logic not yet built |
-
-**We do not claim "runs unattended" until we've observed it.** If reactivity
-delivery doesn't resolve, the documented fallback (an off-chain scheduled
-price push, same on-chain compute) is used instead, and stated as such.
-
-## Why this, and not something else
-
-Seven other Event Contracts hackathon submissions already exist. Three of
-them are AI-verdict products ("is this market safe? GREEN/YELLOW/RED"). None
-of them — and nothing in dreamDEX's own Bot Kit — computes what a window
-*should* cost. That gap, not "another trading bot," is what Sigma builds into.
-
-Full competitive analysis: [`docs/RESEARCH.md`](docs/RESEARCH.md) §7.
+| Component | Status | How to verify |
+|---|---|---|
+| **5 Solidity contracts** | **LIVE** on Shannon (50312) | `eth_getCode` returns nonempty bytecode for every address below |
+| **Pricing engine** `Φ(d₂)` | **LIVE** — on-chain, 65 tests green, triple-implementation agreement (Solidity, TS, SciPy) | `npx hardhat test` |
+| **Volatility estimator** | **LIVE** — EWMA σ accumulating on-chain via fallback price pusher | `scripts/verify-unattended.mjs` |
+| **Fair-value oracle** | **LIVE** — first end-to-end fair value produced: 68.44% vs book 67.90%, +54 bps edge | `scripts/publish-and-refresh-btc-window.mjs` |
+| **ec-sigma bot** | **DRY_RUN** — strategy logic, quantization, order placement, maker seeding, settlement all built | `bot/run-dry-run.mjs` |
+| **Edge Radar frontend** | **LIVE** — reads on-chain registry + oracle, displays fair value and edge | `cd frontend && npm run dev` |
+| **Backtest** | **REPLAY** — calibration curve from 3,000 real BTC minute candles (~230 independent windows) | `backtest/run-backtest.mjs` |
+| **Reactivity subscription** | **NOT DELIVERING** — 6 subscriptions tested, zero callbacks; fallback price pusher works | `docs/FINDINGS.md` §6 |
 
 ## Architecture
 
@@ -74,31 +56,6 @@ dreamDEX BTC spot pool  --MarkPriceUpdated-->  Somnia Reactivity  -->  RealizedV
                                                     read by: any contract  ·  ec-sigma bot  ·  Edge Radar UI
 ```
 
-## Repository layout
-
-```
-contracts/          Solidity — pricing, volatility, oracle, cron, reactivity bridge
-test/               Hardhat test suite (103 passing)
-reference/          SciPy reference pricer — the ground truth the Solidity is checked against
-scripts/            Deploy, subscribe, balance-check, diagnostic tooling
-deployments/        Address book for the live testnet deployment
-backtest/           Phase 8 historical replay — BTC minute candles, calibration analysis
-docs/               Research, design, integration notes, phase plans, status
-brand/              Logo assets
-frontend/           Next.js 15 Edge Radar UI — dark terminal aesthetic, sigma-prefixed classes
-```
-
-## Frontend screens
-
-| Screen | Route | Description |
-|---|---|---|
-| Edge Radar | `/` | Live windows from on-chain registry, system status, sample layout, model chart, backtest evidence |
-| Window Detail | `/window/[marketId]` | Individual window deep-dive: fair probability dial, edge, Φ(d₂) model chart, order book, trade feed |
-| Track Record | `/track-record` | Live trading performance: equity curve, trade history, calibration (populates as ec-sigma trades) |
-| Backtest | `/backtest` | Historical replay evidence: calibration curve, tau buckets, cadence breakdown, honest tail finding |
-
-Frontend stack: Next.js 15, React 18, TypeScript, viem. No Tailwind — pure vanilla CSS with CSS custom properties. Dark terminal aesthetic, sigma-prefixed component classes.
-
 ## Running the tests
 
 ```bash
@@ -114,6 +71,35 @@ npm install
 npm run dev
 ```
 
+## Running the bot
+
+```bash
+cd bot
+npm install
+
+# Dry run (no orders placed)
+node run-dry-run.mjs
+
+# Dry run loop
+node run-dry-run.mjs --loop
+
+# Live taker mode (requires DEPLOYER_PRIVATE_KEY in .env)
+node run-live.mjs --live
+
+# Live maker mode (seed empty books)
+node run-live.mjs --live --maker
+
+# Claim settled positions
+node run-live.mjs --claim
+```
+
+## Running the backtest
+
+```bash
+cd backtest
+node run-backtest.mjs
+```
+
 ## Deployed contracts — Somnia Shannon testnet (chain 50312)
 
 | Contract | Address |
@@ -126,6 +112,14 @@ npm run dev
 
 Full transaction history for every deploy and write: [`docs/DEPLOYMENT-LEDGER.md`](docs/DEPLOYMENT-LEDGER.md).
 
+## Model assumptions and limitations
+
+- **Zero-drift GBM** — the model assumes spot follows geometric Brownian motion with zero drift. This understates fat tails: the backtest found the model is systematically overconfident in the tails (predicted ~0.2% realises ~14%; predicted ~99.6% realises ~91.5%). Well-calibrated in the middle.
+- **Volatility source** — σ comes from a dreamDEX spot-pool mark price (`MarkPriceUpdated`), not a signed oracle attestation. Cross-checked 0.12% from the perp index price.
+- **Settlement** — Terminal (`close ≥ open`, ties favor Up). The `SettlementStyle.Average` path exists but is not used on the real venue.
+- **Builder fees** — implemented in code but **disabled on Shannon** (`maxBuilderFeeBpsTimes1k = 0`). Revenue model is testable on mainnet only.
+- **Reactivity** — designed to feed σ on-chain without a keeper, but delivery is not confirmed. Fallback: off-chain scheduled price pusher (`scripts/fallback-price-pusher.mjs`).
+
 ## Documentation index
 
 | Doc | Contents |
@@ -135,6 +129,7 @@ Full transaction history for every deploy and write: [`docs/DEPLOYMENT-LEDGER.md
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design |
 | [`docs/RESEARCH.md`](docs/RESEARCH.md) | Cross-verified fact base on the hackathon, dreamDEX, and the competitive field |
 | [`docs/INTEGRATION.md`](docs/INTEGRATION.md) | Measured SDK/chain integration facts and traps |
+| [`docs/FEEDBACK.md`](docs/FEEDBACK.md) | SDK & documentation feedback (submitted to organizers) |
 | [`docs/STATUS.md`](docs/STATUS.md) · [`docs/CHECKLIST.md`](docs/CHECKLIST.md) | Live build status |
 | [`docs/BRAND.md`](docs/BRAND.md) | Name, tagline, identity, pitch script |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | Detailed phase-by-phase implementation plans |
