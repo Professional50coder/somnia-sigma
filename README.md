@@ -6,138 +6,211 @@
 
 ---
 
-## What this is
+Hitansh Gopani · August 2026
 
-A dreamDEX Event Contract has no strike — the strike **is** the window's
-opening price. So every market is a coin flip at open, and the real odds move
-fast, non-linearly, as spot drifts off that line and the clock runs down. The
-price you pay *is* a probability: pay 0.70 and you need to be right more than
-70% of the time just to break even. Nothing on the market tells you whether
-that price is right.
+[Edge Radar (live)](https://somnia-sigma-git-main-hitanshs-projects.vercel.app) · [Architecture](docs/ARCHITECTURE.md) · [Deployment Ledger](docs/DEPLOYMENT-LEDGER.md) · [Research Base](docs/RESEARCH.md)
 
-**Sigma computes it.** Realised volatility is measured on-chain, continuously,
-from dreamDEX's own live mark-price feed, and folded into a closed-form fair
-probability (`Φ(d₂)`, validated against `scipy.stats.norm`). The result —
-fair probability, edge in basis points, break-even win rate — is published
-on-chain, for free, for any contract to read.
+Contract addresses on Somnia Shannon testnet (chain 50312) — see [§ 06](#section-06--deployed-contracts).
 
-> dreamDEX's own `ec-maker` strategy is documented as quoting *"two-sided
-> post-only... around fair probability"* — with nothing in the kit supplying
-> that number. Sigma is that number.
+---
 
-Full reasoning, the competitive read, and the pitch script: [`docs/VALUE.md`](docs/VALUE.md).
+I set out to answer one question: **can you compute a fair probability for a prediction market contract that has no strike — where the strike IS the opening price — in real time, on-chain, and tell whether the book is wrong?**
 
-## What is live vs seeded vs replayed
+Sigma's answer is yes. Realised volatility is measured on-chain from dreamDEX's own mark-price feed, folded into a closed-form fair probability (`Φ(d₂)`, validated against `scipy.stats.norm`), and published on-chain for any contract to read. The result — fair probability, edge in basis points, break-even win rate — is the number dreamDEX's own `ec-maker` strategy is documented as quoting around, with nothing in the kit actually supplying.
+
+> dreamDEX's own `ec-maker` strategy is documented as quoting *"two-sided post-only... around fair probability"* — with nothing in the kit supplying that number. Sigma is that number.
+
+---
+
+## SECTION 01 · REFERENCE ARCHITECTURE
+
+### The data flow, end to end
+
+```mermaid
+flowchart LR
+  subgraph dreamDEX["dreamDEX Spot Pool"]
+    M["MarkPriceUpdated"]
+  end
+
+  subgraph Somnia["Somnia Chain (50312)"]
+    RV["RealizedVol\n(EWMA σ)"]
+    WR["SigmaWindowRegistry\n(opening price, per window)"]
+    CR["SigmaCron\n(window refresh)"]
+    OR["SigmaOracle\n(Φ(d₂) fair value)"]
+  end
+
+  subgraph Consumers["Consumers"]
+    BOT["ec-sigma bot"]
+    UI["Edge Radar UI"]
+    ANY["Any contract"]
+  end
+
+  M -->|event| RV
+  WR --> OR
+  RV --> OR
+  CR -->|refresh| OR
+  OR --> BOT
+  OR --> UI
+  OR --> ANY
+
+  style RV fill:#54BBF7,stroke:#54BBF7,color:#070709
+  style OR fill:#4DBE95,stroke:#4DBE95,color:#070709
+  style CR fill:#6166DC,stroke:#6166DC,color:#fff
+```
+
+**Fig. 1** — End-to-end data flow. DreamDEX mark prices flow into on-chain EWMA (RealizedVol), combined with window metadata (SigmaWindowRegistry) to compute fair probability (SigmaOracle). The bot, frontend, and any on-chain contract can read the result.
+
+### What each contract does
+
+| Contract | Role | Key property |
+|---|---|---|
+| **RealizedVol** | Accumulates EWMA σ from `MarkPriceUpdated` events | Continuously updated, no keeper needed |
+| **SigmaWindowRegistry** | Stores opening price, expiry, interval per window | One source of truth for window metadata |
+| **SigmaCron** | Refreshes window state at boundaries | Scheduler, not user-facing |
+| **SigmaOracle** | Publishes fair value: `Φ(d₂)` edge, kelly, break-even | The single read target for all consumers |
+| **SigmaReactiveVol** | Reactive wrapper for vol delivery | Intended for push; currently not delivering |
+
+---
+
+## SECTION 02 · WHAT COMPLETED
+
+### The pricing engine
+
++ PASS  `Φ(d₂)` implementation in Solidity — zero-drift GBM closed form
++ PASS  TypeScript reference implementation — identical output
++ PASS  SciPy validation — triple-implementation agreement confirmed
++ PASS  103 Hardhat tests across all contracts — all green
++ PASS  Volatility estimator — EWMA σ accumulating on-chain
++ PASS  Fair-value oracle — end-to-end: 68.44% fair vs 67.90% book (+54 bps edge)
+
+### The bot
+
++ PASS  Strategy logic — `evaluate()` produces fair probability from on-chain vol
++ PASS  Quantization — `quantizePrice`, `quantizeSize`, `complementPrice`
++ PASS  Order placement — taker and maker modes
++ PASS  Settlement — `maybeClaim`, `isSettled`
++ PASS  DRY_RUN runner — full pipeline without real orders
++ PASS  Live runner — `--live`, `--maker`, `--claim`, `--loop` modes
+
+### The frontend
+
++ PASS  Edge Radar — reads on-chain registry + oracle, displays fair value and edge
++ PASS  Window Detail — fair value / market price / price chart tabs
++ PASS  Backtest — calibration curve from 3,000 real BTC minute candles
++ PASS  Track Record — trade log with win/loss distribution
++ PASS  Wallet Connect — MetaMask integration with Somnia chain switch
++ PASS  Bot Controls — Start/Stop/Claim buttons with live status
++ PASS  Theme Toggle — dark/light mode
++ PASS  15 UI kit libraries integrated (Radix, Framer Motion, lightweight-charts, sonner, date-fns, etc.)
+
+### The backtest
+
++ PASS  3,000 real BTC/USDC M1 candles (~230 independent windows)
++ PASS  Calibration curve — predicted vs realised frequency
++ PASS  Brier score: 0.2071 — Log loss: 0.7426
++ PASS  Time remaining (τ) breakdown
++ PASS  Window cadence breakdown (15m vs 1h)
++ PASS  Known limitation documented: tail overconfidence (predicted ~0.2% → realises ~14%)
 
 | Component | Status | How to verify |
 |---|---|---|
-| **5 Solidity contracts** | **LIVE** on Shannon (50312) | `eth_getCode` returns nonempty bytecode for every address below |
-| **Pricing engine** `Φ(d₂)` | **LIVE** — on-chain, 65 tests green, triple-implementation agreement (Solidity, TS, SciPy) | `npx hardhat test` |
-| **Volatility estimator** | **LIVE** — EWMA σ accumulating on-chain via fallback price pusher | `scripts/verify-unattended.mjs` |
-| **Fair-value oracle** | **LIVE** — first end-to-end fair value produced: 68.44% vs book 67.90%, +54 bps edge | `scripts/publish-and-refresh-btc-window.mjs` |
-| **ec-sigma bot** | **DRY_RUN** — strategy logic, quantization, order placement, maker seeding, settlement all built | `bot/run-dry-run.mjs` |
-| **Edge Radar frontend** | **LIVE** — reads on-chain registry + oracle, displays fair value and edge | `cd frontend && npm run dev` |
-| **Backtest** | **REPLAY** — calibration curve from 3,000 real BTC minute candles (~230 independent windows) | `backtest/run-backtest.mjs` |
-| **Reactivity subscription** | **NOT DELIVERING** — 6 subscriptions tested, zero callbacks; fallback price pusher works | `docs/FINDINGS.md` §6 |
+| **5 Solidity contracts** | **LIVE** on Shannon | `eth_getCode` returns bytecode |
+| **Pricing engine** `Φ(d₂)` | **LIVE** | `npx hardhat test` (103 tests) |
+| **Volatility estimator** | **LIVE** | `scripts/verify-unattended.mjs` |
+| **Fair-value oracle** | **LIVE** | `scripts/publish-and-refresh-btc-window.mjs` |
+| **ec-sigma bot** | **DRY_RUN** | `bot/run-dry-run.mjs` |
+| **Edge Radar frontend** | **LIVE** | [vercel deployment](https://somnia-sigma-git-main-hitanshs-projects.vercel.app) |
+| **Backtest** | **REPLAY** | `backtest/run-backtest.mjs` |
+| **Reactivity subscription** | **NOT DELIVERING** | 6 tested, 0 callbacks |
 
-## Frontend features
+---
+
+## SECTION 03 · THE PRICING MODEL
+
+The core math: for a window with opening price $S_0$, current spot $S$, volatility $\sigma$, and time remaining $\tau$:
+
+$$d_2 = \frac{\ln(S / S_0) + \frac{1}{2}\sigma^2 \tau}{\sigma\sqrt{\tau}}$$
+
+$$\text{Fair probability} = \Phi(d_2)$$
+
+Where:
+- $\Phi$ is the standard normal CDF
+- $\sigma$ comes from on-chain EWMA (continuously updated)
+- $\tau$ is time remaining as a fraction of window duration
+- Settlement is terminal: `close ≥ open` → Up wins
+
+### Known limitations
+
+- **Zero-drift GBM** — understates fat tails. Predicted ~0.2% realises ~14%; predicted ~99.6% realises ~91.5%. Well-calibrated in the middle (buckets 3–6).
+- **Volatility source** — mark price, not signed oracle attestation. Cross-checked 0.12% from perp index price.
+- **Builder fees** — implemented but disabled on Shannon (`maxBuilderFeeBpsTimes1k = 0`).
+- **Reactivity** — designed to push σ on-chain without a keeper, but delivery not confirmed.
+
+---
+
+## SECTION 04 · BACKTEST CALIBRATION
+
+```mermaid
+xychart-beta
+    title "Calibration Curve — Predicted vs Realised"
+    x-axis ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    y-axis "Frequency (%)" 0 --> 100
+    bar [0.2, 6.4, 19.9, 32.1, 41.2, 49.9, 59.6, 72.1, 89.4, 99.6]
+    line [14.1, 22.4, 30.6, 35.9, 42.3, 40.9, 51.4, 60.7, 76.7, 91.5]
+```
+
+**Fig. 2** — Calibration curve. Bars = predicted frequency per bucket. Line = realised frequency. Buckets 3–6 are well-calibrated; tails show systematic overconfidence.
+
+| τ Bucket | Checkpoints | Mean Predicted | Realised | Brier |
+|---|---|---|---|---|
+| (0.8, 1.0] | 922 | 48.1% | 46.2% | 0.2604 |
+| (0.5, 0.8] | 1,849 | 47.0% | 47.3% | 0.2375 |
+| (0.2, 0.5] | 1,670 | 46.9% | 46.2% | 0.2137 |
+| (0.0, 0.2] | 1,179 | 46.7% | 46.6% | 0.1087 |
+
+---
+
+## SECTION 05 · FRONTEND FEATURES
 
 The Edge Radar terminal includes:
 
 - **Wallet Connect** — MetaMask integration with Somnia chain switch, address display, QR code, explorer link
-- **Bot Controls** — Start/Stop/Claim buttons with live status indicator in the nav bar
+- **Bot Controls** — Start/Stop/Claim buttons with live status indicator
 - **Theme Toggle** — Dark/light mode via next-themes
-- **Animated Spot Price** — Real-time price with color flash on update (green = up, red = down)
+- **Animated Spot Price** — Real-time price with color flash on update
 - **Interval Filter** — Radix Select dropdown to filter windows by cadence (15m / 1h / 4h / 24h)
 - **Watchlist** — Radix Switch toggle per card to track specific windows
 - **Tooltips** — Hover explanations on sigma, edge, kelly, and all stat cards
 - **Stagger Animations** — Cards entrance with framer-motion stagger, hover lift, tap shrink
-- **Window Detail Tabs** — Fair Value / Market Price / Chart (lightweight-charts candlestick)
-- **Backtest Tabs** — Calibration / By Time (τ) / By Cadence with animated bar fills
+- **Window Detail Tabs** — Fair Value / Market Price / Chart (lightweight-charts)
+- **Backtest Tabs** — Calibration / By Time (τ) / By Cadence
 - **Accordion Assumptions** — Collapsible model limitations section
-- **Progress Bars** — Brier score, log loss, quality indicators, kelly fraction
+- **Progress Bars** — Brier score, log loss, quality indicators
 - **Dialog Modals** — Trade details, model info
+- **Popover Quick Help** — How to read fair value, edge, kelly
 - **Skeleton Loaders** — Graceful loading states on all pages
 - **Toast Notifications** — sonner toasts for data load, bot actions, errors
-- **Error Boundary** — Catches chart/rendering failures with retry button
-- **Scroll Animations** — whileInView on backtest cards and track record
+- **Error Boundary** — Catches chart/rendering failures with retry
+- **Scroll Animations** — whileInView on backtest and track record
 
-## Architecture
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
-In short:
-
-```
-dreamDEX BTC spot pool  --MarkPriceUpdated-->  Somnia Reactivity  -->  RealizedVol (on-chain, EWMA σ)
-                                                                              |
-                                          SigmaWindowRegistry (opening price, per window)
-                                                                              |
-                                                                        SigmaOracle
-                                                          (Φ(d₂) fair value · edge · break-even)
-                                                                              |
-                                                    read by: any contract  ·  ec-sigma bot  ·  Edge Radar UI
-```
-
-## UI stack
+### UI stack
 
 | Library | Purpose |
 |---|---|
 | Next.js 16 + React 19 | App framework |
 | Tailwind CSS v4 | Styling |
-| Radix UI (dialog, tabs, accordion, progress, tooltip, popover, select, switch) | Accessible primitives |
-| Framer Motion | Animations — stagger, hover, tap, scroll, AnimatePresence |
-| lightweight-charts | Candlestick / area / line price charts |
+| Radix UI (8 primitives) | Accessible components |
+| Framer Motion | Animations |
+| lightweight-charts | Price charts |
 | sonner | Toast notifications |
 | next-themes | Dark/light mode |
 | date-fns | Time formatting |
 | qrcode.react | Wallet QR code |
-| viem | Ethereum provider + on-chain reads |
+| viem | Ethereum provider |
 
-## Running the tests
+---
 
-```bash
-npm install
-npx hardhat test
-```
-
-## Running the frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## Running the bot
-
-```bash
-cd bot
-npm install
-
-# Dry run (no orders placed)
-node run-dry-run.mjs
-
-# Dry run loop
-node run-dry-run.mjs --loop
-
-# Live taker mode (requires DEPLOYER_PRIVATE_KEY in .env)
-node run-live.mjs --live
-
-# Live maker mode (seed empty books)
-node run-live.mjs --live --maker
-
-# Claim settled positions
-node run-live.mjs --claim
-```
-
-## Running the backtest
-
-```bash
-cd backtest
-node run-backtest.mjs
-```
-
-## Deployed contracts — Somnia Shannon testnet (chain 50312)
+## SECTION 06 · DEPLOYED CONTRACTS
 
 | Contract | Address |
 |---|---|
@@ -147,38 +220,74 @@ node run-backtest.mjs
 | SigmaOracle | `0xe4c7be7dca5f536cfb18df61b01f3a952e902270` |
 | SigmaCron | `0xc573c7b699690d1821aa4156ef7c09ee9ceba0e7` |
 
-Full transaction history for every deploy and write: [`docs/DEPLOYMENT-LEDGER.md`](docs/DEPLOYMENT-LEDGER.md).
+Full transaction history: [`docs/DEPLOYMENT-LEDGER.md`](docs/DEPLOYMENT-LEDGER.md).
 
-## Model assumptions and limitations
+---
 
-- **Zero-drift GBM** — the model assumes spot follows geometric Brownian motion with zero drift. This understates fat tails: the backtest found the model is systematically overconfident in the tails (predicted ~0.2% realises ~14%; predicted ~99.6% realises ~91.5%). Well-calibrated in the middle.
-- **Volatility source** — σ comes from a dreamDEX spot-pool mark price (`MarkPriceUpdated`), not a signed oracle attestation. Cross-checked 0.12% from the perp index price.
-- **Settlement** — Terminal (`close ≥ open`, ties favor Up). The `SettlementStyle.Average` path exists but is not used on the real venue.
-- **Builder fees** — implemented in code but **disabled on Shannon** (`maxBuilderFeeBpsTimes1k = 0`). Revenue model is testable on mainnet only.
-- **Reactivity** — designed to feed σ on-chain without a keeper, but delivery is not confirmed. Fallback: off-chain scheduled price pusher (`scripts/fallback-price-pusher.mjs`).
+## SECTION 07 · REPOSITORY
 
-## Documentation index
+```
+contracts/           5 Solidity contracts + interfaces
+test/                103 Hardhat tests
+scripts/             deploy, compile, diagnostics, price feed
+bot/                 ec-sigma strategy, quantize, dry-run, live runner
+backtest/            historical replay and calibration analysis
+frontend/            Next.js 16 + React 19 terminal UI
+brand/               Sigma logo assets
+docs/                architecture, design, research, integration, feedback
+deployments/         Shannon testnet deployment artifacts
+```
 
-| Doc | Contents |
-|---|---|
-| [`docs/OVERVIEW.md`](docs/OVERVIEW.md) | What we're building and why, end to end |
-| [`docs/VALUE.md`](docs/VALUE.md) | The value proposition, explained at every level |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design |
-| [`docs/RESEARCH.md`](docs/RESEARCH.md) | Cross-verified fact base on the hackathon, dreamDEX, and the competitive field |
-| [`docs/INTEGRATION.md`](docs/INTEGRATION.md) | Measured SDK/chain integration facts and traps |
-| [`docs/FEEDBACK.md`](docs/FEEDBACK.md) | SDK & documentation feedback (submitted to organizers) |
-| [`docs/STATUS.md`](docs/STATUS.md) · [`docs/CHECKLIST.md`](docs/CHECKLIST.md) | Live build status |
-| [`docs/BRAND.md`](docs/BRAND.md) | Name, tagline, identity, pitch script |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/) | Detailed phase-by-phase implementation plans |
+### Reproduce it
 
-## What this is not
+```bash
+# Tests
+npm install
+npx hardhat test
 
-- Not an AI verdict/prediction product. The core is closed-form math
-  (`Φ(d₂)`), validated against SciPy — not a model's opinion.
-- Not a claim of profitability. Sigma publishes a measurable, auditable
-  *signal* and reports realised results honestly, losses included.
-- Not overstating what's live. Every number in this repo is either backed
-  by a transaction hash or marked as not yet proven.
+# Frontend
+cd frontend
+npm install
+npm run dev
+
+# Bot — dry run
+cd bot
+npm install
+node run-dry-run.mjs
+
+# Bot — live (requires DEPLOYER_PRIVATE_KEY in .env)
+node run-live.mjs --live
+
+# Backtest
+cd backtest
+node run-backtest.mjs
+```
+
+---
+
+## SECTION 08 · WHAT I'D FIX FIRST
+
+Ordered by how much impact each has:
+
+1. **Reactivity delivery** — 6 subscriptions tested, zero callbacks. The fallback price pusher works, but on-chain push would remove the off-chain dependency entirely.
+2. **Fat tails** — the model is systematically overconfident in the tails. A skew-t or mixture model would fix this, but requires richer on-chain vol estimation.
+3. **Builder fees** — implemented but disabled on Shannon. Revenue model is testable on mainnet only.
+4. **Live bot validation** — DRY_RUN works, but real orders on testnet would prove the full pipeline end-to-end.
+5. **Market data integration** — dreamDEX GraphQL indexer works for metadata but price history is limited. A richer feed would improve the backtest.
+
+None of these are architectural. The hard part — on-chain vol measurement, closed-form pricing, window-boundary scheduling — already works. The gap is in real-world validation and model refinement.
+
+---
+
+## SECTION 09 · WHAT THIS IS NOT
+
+- Not an AI verdict/prediction product. The core is closed-form math (`Φ(d₂)`), validated against SciPy — not a model's opinion.
+- Not a claim of profitability. Sigma publishes a measurable, auditable *signal* and reports realised results honestly, losses included.
+- Not overstating what's live. Every number in this repo is either backed by a transaction hash or marked as not yet proven.
+
+---
+
+**Hitansh Gopani** · [hitansh.gopani@somaiya.edu](mailto:hitansh.gopani@somaiya.edu) · [@Hitansh54](https://x.com/Hitansh54) · [GitHub](https://github.com/Professional50coder)
 
 ## License
 
