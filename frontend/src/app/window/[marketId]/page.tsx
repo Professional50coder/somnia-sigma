@@ -14,6 +14,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { ErrorBoundary } from "@/components/sigma/error-boundary";
 import { toast } from "sonner";
 import type { WindowWithFair } from "@/lib/types";
 import { createChart, ColorType, AreaSeries, LineSeries } from "lightweight-charts";
@@ -222,6 +224,25 @@ export default function WindowDetailPage({
                 <Info className="w-3.5 h-3.5" />
                 Model Info
               </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
+                    <Info className="w-3.5 h-3.5" />
+                    Quick Help
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 text-xs">
+                  <div className="space-y-2">
+                    <div className="font-medium text-foreground">How to read this page</div>
+                    <ul className="text-muted-foreground space-y-1">
+                      <li><strong>Fair Value</strong> — Φ(d₂) from on-chain vol + time remaining</li>
+                      <li><strong>Edge</strong> — Fair minus market price (positive = underpriced)</li>
+                      <li><strong>Kelly</strong> — Optimal bet size as % of bankroll</li>
+                      <li><strong>Chart</strong> — Fair vs market price over time</li>
+                    </ul>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Key facts with progress bars */}
@@ -351,16 +372,18 @@ export default function WindowDetailPage({
               <TabsContent value="chart">
                 <div className="sigma-card p-5">
                   <h3 className="text-sm font-medium text-foreground mb-3">Fair Value vs Market Price</h3>
-                  {fv?.ok ? (
-                    <PriceChart
-                      fairProb={fv.fairProbBps / 10000}
-                      impliedProb={fv.impliedProbBps > 0 ? fv.impliedProbBps / 10000 : 0.5}
-                    />
-                  ) : (
-                    <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
-                      No data available for chart
-                    </div>
-                  )}
+                  <ErrorBoundary>
+                    {fv?.ok ? (
+                      <PriceChart
+                        fairProb={fv.fairProbBps / 10000}
+                        impliedProb={fv.impliedProbBps > 0 ? fv.impliedProbBps / 10000 : 0.5}
+                      />
+                    ) : (
+                      <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                        No data available for chart
+                      </div>
+                    )}
+                  </ErrorBoundary>
                   <div className="flex items-center gap-6 mt-3 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <span className="w-3 h-2 bg-primary/60 rounded" /> Fair Value

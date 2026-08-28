@@ -40,6 +40,28 @@ Full reasoning, the competitive read, and the pitch script: [`docs/VALUE.md`](do
 | **Backtest** | **REPLAY** — calibration curve from 3,000 real BTC minute candles (~230 independent windows) | `backtest/run-backtest.mjs` |
 | **Reactivity subscription** | **NOT DELIVERING** — 6 subscriptions tested, zero callbacks; fallback price pusher works | `docs/FINDINGS.md` §6 |
 
+## Frontend features
+
+The Edge Radar terminal includes:
+
+- **Wallet Connect** — MetaMask integration with Somnia chain switch, address display, QR code, explorer link
+- **Bot Controls** — Start/Stop/Claim buttons with live status indicator in the nav bar
+- **Theme Toggle** — Dark/light mode via next-themes
+- **Animated Spot Price** — Real-time price with color flash on update (green = up, red = down)
+- **Interval Filter** — Radix Select dropdown to filter windows by cadence (15m / 1h / 4h / 24h)
+- **Watchlist** — Radix Switch toggle per card to track specific windows
+- **Tooltips** — Hover explanations on sigma, edge, kelly, and all stat cards
+- **Stagger Animations** — Cards entrance with framer-motion stagger, hover lift, tap shrink
+- **Window Detail Tabs** — Fair Value / Market Price / Chart (lightweight-charts candlestick)
+- **Backtest Tabs** — Calibration / By Time (τ) / By Cadence with animated bar fills
+- **Accordion Assumptions** — Collapsible model limitations section
+- **Progress Bars** — Brier score, log loss, quality indicators, kelly fraction
+- **Dialog Modals** — Trade details, model info
+- **Skeleton Loaders** — Graceful loading states on all pages
+- **Toast Notifications** — sonner toasts for data load, bot actions, errors
+- **Error Boundary** — Catches chart/rendering failures with retry button
+- **Scroll Animations** — whileInView on backtest cards and track record
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
@@ -55,6 +77,21 @@ dreamDEX BTC spot pool  --MarkPriceUpdated-->  Somnia Reactivity  -->  RealizedV
                                                                               |
                                                     read by: any contract  ·  ec-sigma bot  ·  Edge Radar UI
 ```
+
+## UI stack
+
+| Library | Purpose |
+|---|---|
+| Next.js 16 + React 19 | App framework |
+| Tailwind CSS v4 | Styling |
+| Radix UI (dialog, tabs, accordion, progress, tooltip, popover, select, switch) | Accessible primitives |
+| Framer Motion | Animations — stagger, hover, tap, scroll, AnimatePresence |
+| lightweight-charts | Candlestick / area / line price charts |
+| sonner | Toast notifications |
+| next-themes | Dark/light mode |
+| date-fns | Time formatting |
+| qrcode.react | Wallet QR code |
+| viem | Ethereum provider + on-chain reads |
 
 ## Running the tests
 
