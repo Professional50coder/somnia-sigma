@@ -1,20 +1,23 @@
 {
   "name": "ec-sigma",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Sigma's dreamDEX Event Contract strategy: reads SigmaOracle's fair value (stubbed until the reactivity feed is proven live), quantizes it onto the venue's tick grid, and logs the trade it would place. DRY_RUN only in this build.",
+  "description": "Sigma's dreamDEX Event Contract strategy: reads SigmaOracle's fair value, quantizes onto the venue's tick grid, places real orders, seeds empty books, and claims settled positions.",
   "scripts": {
     "test": "node --test src/*.test.mjs",
     "read": "node src/marketRead.mjs",
-    "dry-run": "node run-dry-run.mjs"
+    "read:json": "node src/marketRead.mjs --json",
+    "dry-run": "node run-dry-run.mjs",
+    "dry-run:loop": "node run-dry-run.mjs --loop",
+    "live": "node run-live.mjs --live",
+    "live:loop": "node run-live.mjs --live --loop",
+    "maker": "node run-live.mjs --live --maker",
+    "maker:loop": "node run-live.mjs --live --maker --loop",
+    "claim": "node run-live.mjs --claim"
   },
   "dependencies": {
     "@somnia-chain/markets-sdk": "0.28.1",
     "viem": "^2.56.0"
-  },
-  "notes": [
-    "No separate npm install was run for these deps — Node's module resolution walks up to the repo root's node_modules, which already has both packages installed at the exact versions listed here. Confirmed working via a smoke import before writing any real code.",
-    "This package.json exists so `bot/` has its own manifest (per the task's isolation requirement) without touching or re-locking the repo root's package-lock.json while another process may be using it."
-  ]
+  }
 }
