@@ -189,6 +189,7 @@ export async function getAllOpenWindows(): Promise<WindowWithFair[]> {
         collateralToken: "0x70a86D8842FB63C4Ad2b7cdddF530eBf1BB25d8E",
         minOrderSize: BigInt(1000000),
         outcomeCount: 2,
+        intervalSec,
         fairValue: raw ? toFairValue(raw) : undefined,
         marketPrice: raw?.ok ? Number(raw.impliedProbBps) / 10000 : undefined,
       };

@@ -7,6 +7,7 @@ export interface Window {
   collateralToken: string;
   minOrderSize: bigint;
   outcomeCount: number;
+  intervalSec: number;
 }
 
 export interface FairValue {

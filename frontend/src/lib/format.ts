@@ -1,3 +1,5 @@
+import { formatDistanceToNowStrict } from "date-fns/formatDistanceToNowStrict";
+
 export function formatProbability(bps: number): string {
   return `${(bps / 100).toFixed(1)}%`;
 }
@@ -37,9 +39,9 @@ export function formatKelly(kellyWad: bigint): string {
 }
 
 export function timeAgo(timestamp: number): string {
-  const diff = Date.now() / 1000 - timestamp;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  try {
+    return formatDistanceToNowStrict(new Date(timestamp * 1000), { addSuffix: true });
+  } catch {
+    return "unknown";
+  }
 }

@@ -10,6 +10,7 @@ import { StatsCards } from "@/components/sigma/stats-cards";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { useSigmaData } from "@/hooks/use-sigma-data";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { staggerContainer, staggerItem, hoverLift, tapShrink } from "@/lib/motion";
 import type { PerformanceStats } from "@/lib/types";
 
@@ -74,6 +75,7 @@ function deriveStats(windows: import("@/lib/types").WindowWithFair[]): Performan
 
 export default function EdgeRadarPage() {
   const [category, setCategory] = useState("all");
+  const [intervalFilter, setIntervalFilter] = useState("all");
   const [showWatchedOnly, setShowWatchedOnly] = useState(false);
   const { watchlist, toggle } = useWatchlist();
   const { windows, vol, lastUpdated, loading, error, refresh } = useSigmaData(15000);
@@ -104,11 +106,15 @@ export default function EdgeRadarPage() {
     if (category !== "all") {
       result = result.filter((w) => w.category.toLowerCase() === category);
     }
+    if (intervalFilter !== "all") {
+      const sec = parseInt(intervalFilter);
+      result = result.filter((w) => w.intervalSec === sec);
+    }
     if (showWatchedOnly) {
       result = result.filter((w) => watchlist.has(w.marketId));
     }
     return result;
-  }, [windows, category, showWatchedOnly, watchlist]);
+  }, [windows, category, intervalFilter, showWatchedOnly, watchlist]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#070709" }}>
@@ -207,6 +213,18 @@ export default function EdgeRadarPage() {
               onSelect={setCategory}
             />
             <div className="flex items-center gap-2">
+              <Select value={intervalFilter} onValueChange={setIntervalFilter}>
+                <SelectTrigger className="w-[100px] h-8 text-xs">
+                  <SelectValue placeholder="Interval" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="900">15m</SelectItem>
+                  <SelectItem value="3600">1h</SelectItem>
+                  <SelectItem value="14400">4h</SelectItem>
+                  <SelectItem value="86400">24h</SelectItem>
+                </SelectContent>
+              </Select>
               <button
                 onClick={() => setShowWatchedOnly(!showWatchedOnly)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${

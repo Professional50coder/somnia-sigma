@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Star, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import type { WindowWithFair } from "@/lib/types";
 import { formatProbability, formatEdge, formatCountdown, timeAgo } from "@/lib/format";
 import { edgeColor, edgeBgColor } from "@/lib/colors";
@@ -51,14 +52,11 @@ export function MarketCard({ window: w, isWatched, onToggleWatch }: MarketCardPr
           </div>
         </Link>
 
-        <button
-          onClick={() => onToggleWatch(w.marketId)}
-          className="shrink-0 p-1 rounded hover:bg-secondary transition-colors"
-        >
-          <Star
-            className={`w-4 h-4 ${isWatched ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`}
-          />
-        </button>
+        <Switch
+          checked={isWatched}
+          onCheckedChange={() => onToggleWatch(w.marketId)}
+          className="shrink-0"
+        />
       </div>
 
       {fv?.ok ? (
