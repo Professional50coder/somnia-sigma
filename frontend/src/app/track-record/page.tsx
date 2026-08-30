@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { animate, stagger, spring } from "animejs";
+import { animate, stagger, spring, onScroll } from "animejs";
 import { Trophy, Activity, RefreshCw, Eye } from "lucide-react";
 import { SigmaNav } from "@/components/sigma/sigma-nav";
+import { TrackRecord3D } from "@/components/sigma/track-record-3d";
 import { StatsCards } from "@/components/sigma/stats-cards";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -152,7 +153,7 @@ export default function TrackRecordPage() {
     });
   }, [settled.length, wins, losses]);
 
-  // Animate trade rows
+  // Animate trade rows (using stagger from last)
   useEffect(() => {
     if (!rowsRef.current) return;
     const rows = rowsRef.current.querySelectorAll("tr");
@@ -161,13 +162,15 @@ export default function TrackRecordPage() {
       opacity: [0, 1],
       translateX: [-12, 0],
       duration: 350,
-      delay: stagger(30),
+      delay: stagger(30, { from: "last", jitter: 20 }),
       ease: "outExpo",
     });
   }, [record.trades.length]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#070709" }}>
+    <div className="h-screen flex flex-col overflow-hidden relative" style={{ backgroundColor: "#070709" }}>
+      <div className="absolute inset-0 opacity-40"><TrackRecord3D /></div>
+      <div className="relative z-10 flex flex-col h-full">
       <SigmaNav />
 
       <main className="flex-1 overflow-y-auto">
@@ -386,6 +389,7 @@ export default function TrackRecordPage() {
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

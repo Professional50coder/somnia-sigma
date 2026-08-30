@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { animate, stagger } from "animejs";
+import { animate, stagger, onScroll, createLayout } from "animejs";
 import type { Category } from "@/lib/types";
 
 interface CategoryFilterProps {
@@ -14,28 +14,32 @@ export function CategoryFilter({ categories, active, onSelect }: CategoryFilterP
   const ref = useRef<HTMLDivElement>(null);
   const played = useRef(false);
 
+  // Layout animation for filter reordering
+  useEffect(() => {
+    if (!ref.current) return;
+    const el = ref.current;
+    const layout = createLayout(el, {
+      duration: 300,
+      ease: "outExpo",
+    });
+    layout.record();
+    return () => { try { layout.revert(); } catch {} };
+  }, [categories, active]);
+
+  // Entrance animation using onScroll
   useEffect(() => {
     if (!ref.current || played.current) return;
     const el = ref.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const buttons = el.querySelectorAll("button");
-          animate(buttons, {
-            opacity: [0, 1],
-            scale: [0.9, 1],
-            duration: 300,
-            delay: stagger(30),
-            ease: "outExpo",
-          });
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    played.current = true;
+    const buttons = el.querySelectorAll("button");
+    animate(buttons, {
+      opacity: [0, 1],
+      scale: [0.9, 1],
+      duration: 300,
+      delay: stagger(30, { from: "center" }),
+      ease: "outExpo",
+      autoplay: onScroll({ target: el, enter: "100%" }),
+    });
   }, []);
 
   return (

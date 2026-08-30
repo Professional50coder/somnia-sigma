@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { animate, stagger } from "animejs";
+import { animate, stagger, onScroll } from "animejs";
 import type { Trade } from "@/lib/types";
 import { formatPrice, timeAgo } from "@/lib/format";
 import { sideColor } from "@/lib/colors";
@@ -19,25 +19,16 @@ export function TradeFeed({ trades, maxItems = 20 }: TradeFeedProps) {
   useEffect(() => {
     if (!containerRef.current || played.current || displayed.length === 0) return;
     const el = containerRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const rows = el.querySelectorAll("[data-trade]");
-          animate(rows, {
-            opacity: [0, 1],
-            translateX: [12, 0],
-            duration: 400,
-            delay: stagger(40),
-            ease: "outExpo",
-          });
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    played.current = true;
+    const rows = el.querySelectorAll("[data-trade]");
+    animate(rows, {
+      opacity: [0, 1],
+      translateX: [12, 0],
+      duration: 400,
+      delay: stagger(40),
+      ease: "outExpo",
+      autoplay: onScroll({ target: el, enter: "100%" }),
+    });
   }, [displayed.length]);
 
   // Animate new trades arriving

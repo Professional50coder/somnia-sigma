@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useEffect } from "react";
-import { animate } from "animejs";
+import { animate, stagger, spring, onScroll } from "animejs";
 import { Star, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -32,38 +32,39 @@ export function MarketCard({ window: w, isWatched, onToggleWatch }: MarketCardPr
   const hasEdge = fv?.ok && Math.abs(fv.edgeBps) > 50;
   const edgeDir = (fv?.edgeBps ?? 0) >= 0;
 
-  // Entrance animation
+  // Entrance animation using onScroll
   useEffect(() => {
     if (!cardRef.current) return;
     const el = cardRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          animate(el, {
-            opacity: [0, 1],
-            translateY: [16, 0],
-            scale: [0.97, 1],
-            duration: 500,
-            ease: "outExpo",
-          });
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    animate(el, {
+      opacity: [0, 1],
+      translateY: [16, 0],
+      scale: [0.97, 1],
+      duration: 500,
+      ease: "outExpo",
+      autoplay: onScroll({ target: el, enter: "100%" }),
+    });
   }, []);
 
-  // Hover effect
+  // Hover effect using keyframes
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     const enter = () => {
-      animate(el, { scale: [1, 1.02], translateY: [0, -2], duration: 250, ease: "outQuad" });
+      animate(el, {
+        scale: [1, 1.02],
+        translateY: [0, -2],
+        duration: 250,
+        ease: spring({ stiffness: 300, damping: 15 }),
+      });
     };
     const leave = () => {
-      animate(el, { scale: [1.02, 1], translateY: [-2, 0], duration: 250, ease: "outQuad" });
+      animate(el, {
+        scale: [1.02, 1],
+        translateY: [-2, 0],
+        duration: 250,
+        ease: "outBounce",
+      });
     };
     el.addEventListener("mouseenter", enter);
     el.addEventListener("mouseleave", leave);

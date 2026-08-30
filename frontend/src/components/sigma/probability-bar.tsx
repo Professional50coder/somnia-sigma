@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { animate } from "animejs";
+import { animate, onScroll } from "animejs";
 
 interface ProbabilityBarProps {
   probability: number;
@@ -24,25 +24,17 @@ export function ProbabilityBar({
   useEffect(() => {
     if (!barRef.current || played.current) return;
     const el = barRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const inner = el.querySelector("[data-fill]");
-          if (inner) {
-            animate(inner, {
-              width: `${pct}%`,
-              duration: 1000,
-              ease: "outExpo",
-            });
-          }
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    played.current = true;
+
+    const inner = el.querySelector("[data-fill]");
+    if (inner) {
+      animate(inner, {
+        width: `${pct}%`,
+        duration: 1000,
+        ease: "outExpo",
+        autoplay: onScroll({ target: el, enter: "100%" }),
+      });
+    }
   }, [pct]);
 
   return (

@@ -25,6 +25,7 @@ export function SigmaHero3D() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const adapter = ADAPTER_MOD as any;
     const { animate, stagger, createTimeline, utils } = adapter;
+    const { lerp, damp } = utils;
 
     const canvas = canvasRef.current!;
     const W = canvas.clientWidth;
@@ -237,11 +238,13 @@ export function SigmaHero3D() {
       globe.rotation.x = Math.sin(time * 0.3) * 0.05;
       glow.rotation.copy(globe.rotation);
 
-      // Mouse-reactive camera
+      // Mouse-reactive camera using lerp and damp from anime.js utils
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
-      camera.position.x += (mx * 30 - camera.position.x) * 0.02;
-      camera.position.y += (-my * 20 + 80 - camera.position.y) * 0.02;
+      const targetX = mx * 30;
+      const targetY = -my * 20 + 80;
+      camera.position.x = lerp(camera.position.x, targetX, 0.02) as number;
+      camera.position.y = lerp(camera.position.y, targetY, 0.02) as number;
       camera.lookAt(0, 0, 0);
 
       // Terrain wave

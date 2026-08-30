@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { SigmaHero3D } from "@/components/sigma/sigma-hero-3d";
-import { animate, stagger, spring } from "animejs";
+import { animate, stagger, spring, onScroll, random, lerp, damp, createDrawable, scrambleText, splitText } from "animejs";
 import {
   Activity, TrendingUp, Zap, Shield, BarChart3, Target, ChevronRight,
   ExternalLink, ArrowRight, Globe, Code2, Cpu, LineChart, CheckCircle2,
@@ -38,7 +38,7 @@ const kpis = [
   { value: 78054, label: "BTC Spot Price", suffix: "", icon: DollarSign, color: "#54BBF7", prefix: "$" },
 ];
 
-/* ─── Anime.js animated counter ─── */
+/* ─── Anime.js animated counter (using onScroll) ─── */
 function Counter({ value, suffix = "", prefix = "" }: { value: number; suffix?: string; prefix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const played = useRef(false);
@@ -46,35 +46,27 @@ function Counter({ value, suffix = "", prefix = "" }: { value: number; suffix?: 
   useEffect(() => {
     if (!ref.current || played.current) return;
     const el = ref.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const obj = { val: 0 };
-          animate(obj, {
-            val: value,
-            duration: 1800,
-            ease: "outExpo",
-            onUpdate: () => {
-              if (!el) return;
-              if (value >= 1000) el.textContent = `${prefix}${Math.round(obj.val).toLocaleString()}${suffix}`;
-              else if (value % 1 !== 0) el.textContent = `${prefix}${obj.val.toFixed(1)}${suffix}`;
-              else el.textContent = `${prefix}${Math.round(obj.val)}${suffix}`;
-            },
-          });
-          observer.disconnect();
-        }
+    played.current = true;
+
+    const obj = { val: 0 };
+    animate(obj, {
+      val: value,
+      duration: 1800,
+      ease: "outExpo",
+      onUpdate: () => {
+        if (!el) return;
+        if (value >= 1000) el.textContent = `${prefix}${Math.round(obj.val).toLocaleString()}${suffix}`;
+        else if (value % 1 !== 0) el.textContent = `${prefix}${obj.val.toFixed(1)}${suffix}`;
+        else el.textContent = `${prefix}${Math.round(obj.val)}${suffix}`;
       },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+      autoplay: onScroll({ target: el, enter: "100%" }),
+    });
   }, [value, suffix, prefix]);
 
   return <span ref={ref}>{prefix}0{suffix}</span>;
 }
 
-/* ─── Anime.js stagger reveal ─── */
+/* ─── Anime.js stagger reveal (using onScroll) ─── */
 function RevealChildren({ className, children, delay = 80 }: { className?: string; children: React.ReactNode; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const played = useRef(false);
@@ -82,32 +74,24 @@ function RevealChildren({ className, children, delay = 80 }: { className?: strin
   useEffect(() => {
     if (!ref.current || played.current) return;
     const el = ref.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const items = el.querySelectorAll("[data-reveal]");
-          animate(items, {
-            opacity: [0, 1],
-            translateY: [40, 0],
-            scale: [0.96, 1],
-            duration: 700,
-            delay: stagger(delay),
-            ease: "outExpo",
-          });
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    played.current = true;
+
+    const items = el.querySelectorAll("[data-reveal]");
+    animate(items, {
+      opacity: [0, 1],
+      translateY: [40, 0],
+      scale: [0.96, 1],
+      duration: 700,
+      delay: stagger(delay, { from: "center" }),
+      ease: "outExpo",
+      autoplay: onScroll({ target: el, enter: "100%" }),
+    });
   }, [delay]);
 
   return <div ref={ref} className={className}>{children}</div>;
 }
 
-/* ─── Anime.js stagger list ─── */
+/* ─── Anime.js stagger list (using onScroll) ─── */
 function StaggerList({ className, items, renderItem }: { className?: string; items: unknown[]; renderItem: (item: unknown, i: number) => React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const played = useRef(false);
@@ -115,25 +99,17 @@ function StaggerList({ className, items, renderItem }: { className?: string; ite
   useEffect(() => {
     if (!ref.current || played.current) return;
     const el = ref.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const children = el.querySelectorAll("[data-stagger]");
-          animate(children, {
-            opacity: [0, 1],
-            translateX: [-24, 0],
-            duration: 550,
-            delay: stagger(60),
-            ease: "outExpo",
-          });
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.08 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    played.current = true;
+
+    const children = el.querySelectorAll("[data-stagger]");
+    animate(children, {
+      opacity: [0, 1],
+      translateX: [-24, 0],
+      duration: 550,
+      delay: stagger(60, { from: "center", jitter: 50 }),
+      ease: "outExpo",
+      autoplay: onScroll({ target: el, enter: "100%" }),
+    });
   }, [items.length]);
 
   return (
@@ -256,7 +232,7 @@ function SigmaWave() {
   return <canvas ref={canvasRef} className="w-full h-full block" />;
 }
 
-/* ─── Calibration chart with anime.js ─── */
+/* ─── Calibration chart (using onScroll) ─── */
 function CalibrationChart() {
   const ref = useRef<HTMLDivElement>(null);
   const barsRef = useRef<(HTMLDivElement | null)[]>([]);
@@ -272,46 +248,36 @@ function CalibrationChart() {
 
   useEffect(() => {
     if (!ref.current || played.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
+    const el = ref.current;
+    played.current = true;
 
-          // Animate bars
-          const realBars = ref.current!.querySelectorAll("[data-real]");
-          const predBars = ref.current!.querySelectorAll("[data-pred]");
+    // Animate bars with onScroll trigger
+    const realBars = el.querySelectorAll("[data-real]");
+    const predBars = el.querySelectorAll("[data-pred]");
 
-          realBars.forEach((bar, i) => {
-            const target = Math.max(2, parseFloat(bar.getAttribute("data-real")!));
-            setTimeout(() => {
-              animate(bar, {
-                width: `${target}%`,
-                opacity: [0, 1],
-                duration: 800,
-                ease: "outExpo",
-              });
-            }, i * 60);
-          });
+    realBars.forEach((bar, i) => {
+      const target = Math.max(2, parseFloat(bar.getAttribute("data-real")!));
+      animate(bar, {
+        width: `${target}%`,
+        opacity: [0, 1],
+        duration: 800,
+        ease: "outExpo",
+        delay: i * 60,
+        autoplay: onScroll({ target: el, enter: "100%" }),
+      });
+    });
 
-          predBars.forEach((bar, i) => {
-            const target = Math.max(2, parseFloat(bar.getAttribute("data-pred")!));
-            setTimeout(() => {
-              animate(bar, {
-                width: `${target}%`,
-                opacity: [0, 1],
-                duration: 800,
-                ease: "outExpo",
-              });
-            }, i * 60 + 100);
-          });
-
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.15 }
-    );
-    observer.observe(ref.current);
-    return () => observer.disconnect();
+    predBars.forEach((bar, i) => {
+      const target = Math.max(2, parseFloat(bar.getAttribute("data-pred")!));
+      animate(bar, {
+        width: `${target}%`,
+        opacity: [0, 1],
+        duration: 800,
+        ease: "outExpo",
+        delay: i * 60 + 100,
+        autoplay: onScroll({ target: el, enter: "100%" }),
+      });
+    });
   }, []);
 
   return (
@@ -364,9 +330,11 @@ function DataFlowParticles() {
 
     const dpr = window.devicePixelRatio || 1;
     const resize = () => {
-      const rect = canvas.getBoundingClientRect();
+      const rect = canvas.parentElement!.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + "px";
+      canvas.style.height = rect.height + "px";
       ctx.scale(dpr, dpr);
     };
     resize();
@@ -379,7 +347,7 @@ function DataFlowParticles() {
     }
 
     const particles: Particle[] = [];
-    const colors = ["#54BBF7", "#4DBE95", "#6166DC", "#C27C58"];
+    const colors = ["#54BBF7", "#4DBE95", "#6166DC", "#D84F68"];
     let t = 0;
 
     const spawn = () => {
@@ -388,13 +356,13 @@ function DataFlowParticles() {
       const color = colors[Math.floor(Math.random() * colors.length)];
       particles.push({
         x: -10,
-        y: h * 0.2 + Math.random() * h * 0.6,
-        vx: 2 + Math.random() * 3,
-        vy: (Math.random() - 0.5) * 0.8,
-        size: 1 + Math.random() * 2.5,
+        y: h * 0.3 + Math.random() * h * 0.4,
+        vx: 1.5 + Math.random() * 2.5,
+        vy: (Math.random() - 0.5) * 0.6,
+        size: 1 + Math.random() * 2,
         color,
         life: 0,
-        maxLife: 250 + Math.random() * 250,
+        maxLife: 300 + Math.random() * 300,
         trail: [],
       });
     };
@@ -404,62 +372,211 @@ function DataFlowParticles() {
       const h = canvas.height / dpr;
       ctx.clearRect(0, 0, w, h);
 
-      if (t % 6 === 0 && particles.length < 80) spawn();
+      if (t % 8 === 0 && particles.length < 60) spawn();
 
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.trail.push({ x: p.x, y: p.y });
-        if (p.trail.length > 12) p.trail.shift();
+        if (p.trail.length > 15) p.trail.shift();
 
         p.x += p.vx;
-        p.y += p.vy + Math.sin(t * 0.04 + i * 0.5) * 0.3;
+        p.y += p.vy + Math.sin(t * 0.03 + i * 0.5) * 0.2;
         p.life++;
 
-        const alpha = Math.min(1, p.life / 30) * Math.max(0, 1 - p.life / p.maxLife);
+        if (p.life > p.maxLife || p.x > w + 20) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        const alpha = Math.min(1, p.life / 40) * Math.max(0, 1 - p.life / p.maxLife);
 
         // Trail
         if (p.trail.length > 1) {
           for (let j = 1; j < p.trail.length; j++) {
-            const ta = alpha * (j / p.trail.length) * 0.4;
+            const ta = alpha * (j / p.trail.length) * 0.3;
             ctx.beginPath();
             ctx.moveTo(p.trail[j - 1].x, p.trail[j - 1].y);
             ctx.lineTo(p.trail[j].x, p.trail[j].y);
             ctx.strokeStyle = p.color + Math.round(ta * 255).toString(16).padStart(2, "0");
-            ctx.lineWidth = p.size * 0.4;
+            ctx.lineWidth = p.size * 0.3;
             ctx.stroke();
           }
         }
 
         // Glow
-        const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
-        glow.addColorStop(0, p.color + Math.round(alpha * 80).toString(16).padStart(2, "0"));
-        glow.addColorStop(1, p.color + "00");
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
-        ctx.fillStyle = glow;
+        ctx.fillStyle = p.color + Math.round(alpha * 40).toString(16).padStart(2, "0");
         ctx.fill();
 
-        // Dot
+        // Core
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = p.color + Math.round(alpha * 255).toString(16).padStart(2, "0");
         ctx.fill();
-
-        if (p.life > p.maxLife || p.x > w + 20) particles.splice(i, 1);
       }
 
-      t++;
       frameRef.current = requestAnimationFrame(draw);
     };
-    frameRef.current = requestAnimationFrame(draw);
 
-    return () => { cancelAnimationFrame(frameRef.current); window.removeEventListener("resize", resize); };
+    draw();
+    return () => {
+      cancelAnimationFrame(frameRef.current);
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block" />;
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
 }
 
-/* ─── Live price ticker ─── */
+/* ─── Animated flow diagram (using onScroll + stagger from center) ─── */
+function FlowDiagram() {
+  const ref = useRef<HTMLDivElement>(null);
+  const played = useRef(false);
+
+  useEffect(() => {
+    if (!ref.current || played.current) return;
+    const el = ref.current;
+    played.current = true;
+
+    const nodes = el.querySelectorAll("[data-node]");
+    const lines = el.querySelectorAll("[data-line]");
+    const arrows = el.querySelectorAll("[data-arrow]");
+
+    // Animate lines first (SVG stroke drawing)
+    animate(lines, {
+      scaleX: [0, 1],
+      duration: 600,
+      delay: stagger(200, { start: 0, from: "center" }),
+      ease: "outExpo",
+      autoplay: onScroll({ target: el, enter: "15%" }),
+    });
+
+    // Animate SVG flow line stroke drawing
+    const flowLines = el.querySelectorAll("[data-flow-line]");
+    animate(flowLines, {
+      strokeDashoffset: [100, 0],
+      duration: 800,
+      delay: stagger(200, { start: 100, from: "center" }),
+      ease: "outExpo",
+      autoplay: onScroll({ target: el, enter: "15%" }),
+    });
+
+    // Then nodes pop in with spring from center
+    animate(nodes, {
+      opacity: [0, 1],
+      scale: [0.5, 1],
+      translateY: [20, 0],
+      duration: 700,
+      delay: stagger(200, { start: 200, from: "center" }),
+      ease: spring({ stiffness: 250, damping: 18 }),
+      autoplay: onScroll({ target: el, enter: "15%" }),
+    });
+
+    // Arrow pulse
+    animate(arrows, {
+      opacity: [0, 1],
+      scale: [0, 1],
+      duration: 400,
+      delay: stagger(200, { start: 400, from: "center" }),
+      ease: "outExpo",
+      autoplay: onScroll({ target: el, enter: "15%" }),
+    });
+  }, []);
+
+  const steps = [
+    { label: "dreamDEX", sub: "MarkPriceUpdated", color: "#D84F68", icon: Activity },
+    { label: "RealizedVol", sub: "EWMA σ on-chain", color: "#54BBF7", icon: Cpu },
+    { label: "SigmaOracle", sub: "Φ(d₂) fair value", color: "#4DBE95", icon: LineChart },
+    { label: "Edge Radar", sub: "Reads fair value", color: "#6166DC", icon: Eye },
+  ];
+
+  return (
+    <div ref={ref} className="w-full">
+      {/* Desktop: horizontal flow */}
+      <div className="hidden sm:flex items-center justify-between gap-0">
+        {steps.map((s, i) => (
+          <div key={s.label} className="contents">
+            {/* Node */}
+            <div data-node style={{ opacity: 0 }} className="relative z-10 shrink-0">
+              <div
+                className="w-28 h-28 rounded-2xl flex flex-col items-center justify-center border-2 transition-all duration-300 hover:scale-110 hover:shadow-lg cursor-default group"
+                style={{
+                  borderColor: s.color + "50",
+                  backgroundColor: s.color + "08",
+                  boxShadow: `0 0 30px ${s.color}10`,
+                }}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-110" style={{ backgroundColor: s.color + "15" }}>
+                  <s.icon className="w-5 h-5" style={{ color: s.color }} />
+                </div>
+                <span className="text-xs font-bold text-foreground text-center leading-tight">{s.label}</span>
+                <span className="text-[9px] text-muted-foreground text-center leading-tight mt-0.5 px-2">{s.sub}</span>
+              </div>
+            </div>
+            {/* Arrow + line between nodes (SVG drawable) */}
+            {i < steps.length - 1 && (
+              <div className="flex-1 flex items-center -mx-1 relative">
+                <svg data-line className="flex-1 h-0.5 relative overflow-hidden" style={{ transformOrigin: "left" }}>
+                  <line x1="0" y1="0" x2="100%" y2="0" stroke={`${steps[i + 1].color}30`} strokeWidth="2" />
+                  <line
+                    data-flow-line
+                    x1="0" y1="0" x2="100%" y2="0"
+                    stroke={`${steps[i + 1].color}80`}
+                    strokeWidth="2"
+                    strokeDasharray="100"
+                    strokeDashoffset="100"
+                  />
+                </svg>
+                <div data-arrow style={{ opacity: 0 }} className="absolute right-0 -translate-y-px">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6L10 6M10 6L7 3M10 6L7 9" stroke={steps[i + 1].color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+                  </svg>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Mobile: vertical flow */}
+      <div className="flex sm:hidden flex-col items-center gap-0">
+        {steps.map((s, i) => (
+          <div key={s.label} className="contents">
+            <div data-node style={{ opacity: 0 }} className="relative z-10">
+              <div
+                className="w-full max-w-[260px] rounded-2xl flex items-center gap-3 p-4 border-2 transition-all duration-300"
+                style={{ borderColor: s.color + "50", backgroundColor: s.color + "08" }}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: s.color + "15" }}>
+                  <s.icon className="w-5 h-5" style={{ color: s.color }} />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-foreground block">{s.label}</span>
+                  <span className="text-[10px] text-muted-foreground">{s.sub}</span>
+                </div>
+              </div>
+            </div>
+            {i < steps.length - 1 && (
+              <svg data-line className="w-0.5 h-8 relative overflow-hidden my-0" style={{ transformOrigin: "top" }}>
+                <line x1="0" y1="0" x2="0" y2="100%" stroke={`${steps[i + 1].color}30`} strokeWidth="2" />
+                <line
+                  data-flow-line
+                  x1="0" y1="0" x2="0" y2="100%"
+                  stroke={`${steps[i + 1].color}80`}
+                  strokeWidth="2"
+                  strokeDasharray="100"
+                  strokeDashoffset="100"
+                />
+              </svg>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+/* ─── Live price ticker (using random() utility) ─── */
 function LiveTicker() {
   const ref = useRef<HTMLSpanElement>(null);
   const [price, setPrice] = useState(78054);
@@ -467,7 +584,7 @@ function LiveTicker() {
   useEffect(() => {
     const id = setInterval(() => {
       setPrice(prev => {
-        const next = prev + Math.round((Math.random() - 0.48) * 25);
+        const next = prev + Math.round((random(-0.52, 0.48) as number) * 25);
         if (ref.current) {
           animate(ref.current, {
             color: next > prev ? ["#4DBE95", "#EEF0F1"] : ["#D84F68", "#EEF0F1"],
@@ -484,105 +601,43 @@ function LiveTicker() {
   return <span ref={ref} className="font-mono text-foreground">${price.toLocaleString()}</span>;
 }
 
-/* ─── Animated flow diagram ─── */
-function FlowDiagram() {
-  const ref = useRef<HTMLDivElement>(null);
-  const played = useRef(false);
-
-  useEffect(() => {
-    if (!ref.current || played.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-
-          const nodes = ref.current!.querySelectorAll("[data-node]");
-          const lines = ref.current!.querySelectorAll("[data-line]");
-
-          // Animate nodes in
-          animate(nodes, {
-            opacity: [0, 1],
-            scale: [0.7, 1],
-            duration: 600,
-            delay: stagger(150, { start: 200 }),
-            ease: spring({ stiffness: 300, damping: 20 }),
-          });
-
-          // Animate flow lines
-          animate(lines, {
-            scaleX: [0, 1],
-            duration: 500,
-            delay: stagger(150, { start: 100 }),
-            ease: "outExpo",
-          });
-
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.2 }
-    );
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const steps = [
-    { label: "dreamDEX", sub: "MarkPriceUpdated", color: "#D84F68", icon: Activity },
-    { label: "RealizedVol", sub: "EWMA σ on-chain", color: "#54BBF7", icon: Cpu },
-    { label: "SigmaOracle", sub: "Φ(d₂) fair value", color: "#4DBE95", icon: LineChart },
-    { label: "Edge Radar", sub: "Reads fair value", color: "#6166DC", icon: Eye },
-  ];
-
-  return (
-    <div ref={ref} className="relative flex items-center justify-between gap-2">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="flex-1 h-px relative overflow-hidden" data-line style={{ transformOrigin: "left" }}>
-          <div className="absolute inset-0 bg-border" />
-          <div
-            className="absolute top-0 left-0 h-full w-12 animate-[flow_1.5s_linear_infinite]"
-            style={{
-              background: `linear-gradient(90deg, transparent, ${steps[i].color}80, transparent)`,
-              animationDelay: `${i * 0.3}s`,
-            }}
-          />
-        </div>
-      ))}
-      {steps.map((s, i) => (
-        <div key={s.label} data-node style={{ opacity: 0 }} className="relative z-10 shrink-0">
-          <div
-            className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl flex flex-col items-center justify-center border transition-all duration-300 hover:scale-105"
-            style={{ borderColor: s.color + "40", backgroundColor: s.color + "10" }}
-          >
-            <s.icon className="w-5 h-5 mb-1" style={{ color: s.color }} />
-            <span className="text-[10px] font-semibold text-foreground text-center leading-tight">{s.label}</span>
-            <span className="text-[8px] text-muted-foreground text-center leading-tight mt-0.5 hidden sm:block">{s.sub}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ═══════════════════════════════════════════════════════════ */
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
 
-  // Hero text scramble
+  // Hero text scramble using anime.js built-in scrambleText
   const taglineRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (!taglineRef.current) return;
     const el = taglineRef.current;
-    const text = "tells you the odds.";
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    let iteration = 0;
-    const id = setInterval(() => {
-      el.textContent = text
-        .split("")
-        .map((ch, i) => (i < iteration ? ch : ch === " " ? " " : chars[Math.floor(Math.random() * chars.length)]))
-        .join("");
-      iteration += 0.5;
-      if (iteration >= text.length) { el.textContent = text; clearInterval(id); }
-    }, 40);
-    return () => clearInterval(id);
+    // Use anime.js scrambleText — replaces 20 lines of custom setInterval code
+    animate(el, {
+      innerHTML: scrambleText({
+        text: "tells you the odds.",
+        from: "left",
+        ease: "outExpo",
+      }),
+      duration: 1800,
+      ease: "outExpo",
+    });
+  }, []);
+
+  // Hero title letter-by-letter reveal using splitText
+  useEffect(() => {
+    const titleEl = document.querySelector("[data-hero-title]");
+    if (!titleEl) return;
+    const splitter = splitText(titleEl, { chars: true });
+    if (splitter.chars?.length) {
+      animate(splitter.chars, {
+        opacity: [0, 1],
+        translateY: [40, 0],
+        rotateX: [90, 0],
+        duration: 600,
+        delay: stagger(40, { from: "center" }),
+        ease: "outExpo",
+      });
+    }
+    return () => { try { splitter.revert(); } catch {} };
   }, []);
 
   // Nav link hover animations
@@ -661,7 +716,7 @@ export default function LandingPage() {
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-accent/10 text-accent border border-accent/20">Chain 50312</span>
             </div>
 
-            <h1 className="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight mb-6" style={{ lineHeight: 1.02 }}>
+            <h1 data-hero-title className="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight mb-6" style={{ lineHeight: 1.02 }}>
               <span className="text-foreground">Sigma</span>
               <br />
               <span ref={taglineRef} className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent" />
@@ -676,11 +731,25 @@ export default function LandingPage() {
             </p>
 
             <div className="flex items-center gap-3">
-              <Link href="/edge-radar" className="group flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
+              <Link href="/edge-radar" className="group flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity" onMouseEnter={(e) => {
+                animate(e.currentTarget, {
+                  y: [
+                    { to: "-2px", ease: "outExpo", duration: 200 },
+                    { to: 0, ease: "outBounce", duration: 400 },
+                  ],
+                });
+              }}>
                 Open Edge Radar
                 <span className="inline-block animate-bounce"><ArrowRight className="w-4 h-4" /></span>
               </Link>
-              <a href="#proofs" className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-secondary/50 transition-colors">
+              <a href="#proofs" className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-secondary/50 transition-colors" onMouseEnter={(e) => {
+                animate(e.currentTarget, {
+                  scale: [
+                    { to: 1.05, ease: "outExpo", duration: 200 },
+                    { to: 1, ease: "outBounce", duration: 500 },
+                  ],
+                });
+              }}>
                 Verify on-chain <ExternalLink className="w-4 h-4" />
               </a>
             </div>
@@ -717,14 +786,14 @@ export default function LandingPage() {
 
           <div data-reveal className="sigma-card p-1 overflow-hidden" style={{ opacity: 0, height: "240px" }} ref={(el) => {
             if (el && !el.dataset.animated) {
-              const observer = new IntersectionObserver(([e]) => {
-                if (e.isIntersecting) {
-                  el.dataset.animated = "true";
-                  animate(el, { opacity: [0, 1], translateY: [20, 0], duration: 800, ease: "outExpo" });
-                  observer.disconnect();
-                }
-              }, { threshold: 0.1 });
-              observer.observe(el);
+              el.dataset.animated = "true";
+              animate(el, {
+                opacity: [0, 1],
+                translateY: [20, 0],
+                duration: 800,
+                ease: "outExpo",
+                autoplay: onScroll({ target: el, enter: "100%" }),
+              });
             }
           }}>
             <SigmaWave />
@@ -755,8 +824,9 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ PROBLEM ═══ */}
-      <section className="py-20 px-6">
-        <div className="mx-auto" style={{ maxWidth: "1000px" }}>
+      <section className="py-20 px-6 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5" style={{ background: "repeating-linear-gradient(45deg, #D84F68 0, #D84F68 1px, transparent 1px, transparent 20px)" }} />
+        <div className="mx-auto relative" style={{ maxWidth: "1000px" }}>
           <RevealChildren className="mb-12">
             <div data-reveal>
               <span className="text-[11px] uppercase tracking-wider text-negative font-semibold mb-2 block">The Problem</span>
@@ -774,8 +844,8 @@ export default function LandingPage() {
             renderItem={(item) => {
               const p = item as { title: string; desc: string; icon: typeof AlertTriangle; color: string };
               return (
-                <div className="sigma-card p-5 transition-all duration-200 hover:-translate-y-1" style={{ ["`--hover-border`" as string]: p.color + "40" }}>
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: p.color + "15" }}>
+                <div className="sigma-card p-5 transition-all duration-200 hover:-translate-y-1 hover:scale-[1.02] group" style={{ ["`--hover-border`" as string]: p.color + "40" }}>
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ backgroundColor: p.color + "15" }}>
                     <p.icon className="w-5 h-5" style={{ color: p.color }} />
                   </div>
                   <h3 className="text-sm font-semibold text-foreground mb-1">{p.title}</h3>
@@ -788,8 +858,9 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ SOLUTION ═══ */}
-      <section className="py-20 px-6" style={{ backgroundColor: "rgba(16,17,22,0.5)" }}>
-        <div className="mx-auto" style={{ maxWidth: "1000px" }}>
+      <section className="py-20 px-6 relative overflow-hidden" style={{ backgroundColor: "rgba(16,17,22,0.5)" }}>
+        <div className="absolute inset-0 opacity-5" style={{ background: "repeating-linear-gradient(-45deg, #4DBE95 0, #4DBE95 1px, transparent 1px, transparent 20px)" }} />
+        <div className="mx-auto relative" style={{ maxWidth: "1000px" }}>
           <RevealChildren className="mb-12">
             <div data-reveal>
               <span className="text-[11px] uppercase tracking-wider text-accent font-semibold mb-2 block">The Solution</span>
@@ -807,8 +878,8 @@ export default function LandingPage() {
             renderItem={(item) => {
               const s = item as { title: string; desc: string; icon: typeof Cpu; color: string };
               return (
-                <div className="sigma-card p-5 transition-all duration-200 hover:-translate-y-1">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: s.color + "15" }}>
+                <div className="sigma-card p-5 transition-all duration-200 hover:-translate-y-1 hover:scale-[1.02] group">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-all duration-300 group-hover:scale-110 group-hover:-rotate-3" style={{ backgroundColor: s.color + "15" }}>
                     <s.icon className="w-5 h-5" style={{ color: s.color }} />
                   </div>
                   <h3 className="text-sm font-semibold text-foreground mb-1">{s.title}</h3>
@@ -820,22 +891,36 @@ export default function LandingPage() {
 
           <div data-reveal style={{ opacity: 0 }} ref={(el) => {
             if (el && !el.dataset.animated) {
-              const observer = new IntersectionObserver(([e]) => {
-                if (e.isIntersecting) {
-                  el.dataset.animated = "true";
-                  animate(el, { opacity: [0, 1], translateY: [20, 0], scale: [0.98, 1], duration: 800, ease: "outExpo" });
-                  observer.disconnect();
-                }
-              }, { threshold: 0.2 });
-              observer.observe(el);
+              el.dataset.animated = "true";
+              animate(el, {
+                opacity: [0, 1],
+                translateY: [20, 0],
+                scale: [0.98, 1],
+                duration: 800,
+                ease: "outExpo",
+                autoplay: onScroll({ target: el, enter: "20%" }),
+                onRender: (self: { progress: number }) => {
+                  // Glow pulse on the formula tracks animation progress
+                  const formula = el.querySelector(".formula-glow");
+                  if (formula && self.progress > 0.5) {
+                    animate(formula, {
+                      textShadow: ["0 0 0 rgba(84,187,247,0)", "0 0 20px rgba(84,187,247,0.5)", "0 0 0 rgba(84,187,247,0)"],
+                      duration: 2000,
+                      repeat: 2,
+                      ease: "inOutQuad",
+                    });
+                  }
+                },
+              });
             }
-          }} className="sigma-card p-6 text-center">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3 block">The core math</span>
-            <div className="text-2xl sm:text-3xl font-mono font-bold text-foreground mb-2">
+          }} className="sigma-card p-6 text-center relative overflow-hidden">
+            <div className="absolute inset-0 opacity-10" style={{ background: "radial-gradient(circle at 50% 50%, #54BBF7 0%, transparent 70%)" }} />
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3 block relative">The core math</span>
+            <div className="formula-glow text-2xl sm:text-3xl font-mono font-bold text-foreground mb-2 relative">
               d₂ = <span className="text-primary">ln(S / S₀) + ½σ²τ</span> / <span className="text-primary">σ√τ</span>
             </div>
-            <div className="text-lg font-mono text-accent">Fair probability = Φ(d₂)</div>
-            <p className="text-sm text-muted-foreground mt-3 max-w-lg mx-auto">σ from on-chain EWMA · τ from window metadata · S₀ from registry · Everything on-chain</p>
+            <div className="text-lg font-mono text-accent relative">Fair probability = Φ(d₂)</div>
+            <p className="text-sm text-muted-foreground mt-3 max-w-lg mx-auto relative">σ from on-chain EWMA · τ from window metadata · S₀ from registry · Everything on-chain</p>
           </div>
         </div>
       </section>

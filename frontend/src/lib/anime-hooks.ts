@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { animate, stagger, spring } from "animejs";
+import { animate, stagger, spring, onScroll, createLayout } from "animejs";
 
-/* ─── Staggered reveal on scroll ─── */
+/* ─── Staggered reveal on scroll (using anime.js onScroll) ─── */
 export function useAnimeReveal(options?: { delay?: number; staggerMs?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const played = useRef(false);
@@ -11,43 +11,34 @@ export function useAnimeReveal(options?: { delay?: number; staggerMs?: number })
   useEffect(() => {
     if (!ref.current || played.current) return;
     const el = ref.current;
+    played.current = true;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const children = el.querySelectorAll("[data-reveal]");
-          if (children.length === 0) {
-            animate(el, {
-              opacity: [0, 1],
-              translateY: [30, 0],
-              duration: 800,
-              delay: options?.delay ?? 0,
-              ease: "outQuart",
-            });
-          } else {
-            animate(children, {
-              opacity: [0, 1],
-              translateY: [40, 0],
-              duration: 700,
-              delay: stagger(options?.staggerMs ?? 80),
-              ease: "outExpo",
-            });
-          }
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.15 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
+    const children = el.querySelectorAll("[data-reveal]");
+    if (children.length === 0) {
+      animate(el, {
+        opacity: [0, 1],
+        translateY: [30, 0],
+        duration: 800,
+        delay: options?.delay ?? 0,
+        ease: "outQuart",
+        autoplay: onScroll({ target: el, enter: "100%" }),
+      });
+    } else {
+      animate(children, {
+        opacity: [0, 1],
+        translateY: [40, 0],
+        duration: 700,
+        delay: stagger(options?.staggerMs ?? 80),
+        ease: "outExpo",
+        autoplay: onScroll({ target: el, enter: "100%" }),
+      });
+    }
   }, [options?.delay, options?.staggerMs]);
 
   return ref;
 }
 
-/* ─── Number counter ─── */
+/* ─── Number counter (using anime.js onScroll) ─── */
 export function useAnimeCounter(target: number, options?: { duration?: number; decimals?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const played = useRef(false);
@@ -55,32 +46,22 @@ export function useAnimeCounter(target: number, options?: { duration?: number; d
   useEffect(() => {
     if (!ref.current || played.current) return;
     const el = ref.current;
+    played.current = true;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const obj = { val: 0 };
-          animate(obj, {
-            val: target,
-            duration: options?.duration ?? 1500,
-            ease: "outExpo",
-            onUpdate: () => {
-              if (el) {
-                el.textContent = options?.decimals
-                  ? obj.val.toFixed(options.decimals)
-                  : Math.round(obj.val).toLocaleString();
-              }
-            },
-          });
-          observer.disconnect();
+    const obj = { val: 0 };
+    animate(obj, {
+      val: target,
+      duration: options?.duration ?? 1500,
+      ease: "outExpo",
+      onUpdate: () => {
+        if (el) {
+          el.textContent = options?.decimals
+            ? obj.val.toFixed(options.decimals)
+            : Math.round(obj.val).toLocaleString();
         }
       },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
+      autoplay: onScroll({ target: el, enter: "100%" }),
+    });
   }, [target, options?.duration, options?.decimals]);
 
   return ref;
@@ -151,7 +132,7 @@ export function useAnimeMagnetic(strength = 0.3) {
   return ref;
 }
 
-/* ─── Staggered list ─── */
+/* ─── Staggered list (using anime.js onScroll) ─── */
 export function useAnimeStagger() {
   const ref = useRef<HTMLDivElement>(null);
   const played = useRef(false);
@@ -173,65 +154,63 @@ export function useAnimeStagger() {
 
   useEffect(() => {
     if (!ref.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          trigger();
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(ref.current);
-    return () => observer.disconnect();
+    const el = ref.current;
+
+    animate(el, {
+      opacity: [0, 1],
+      duration: 1,
+      autoplay: onScroll({
+        target: el,
+        enter: "100%",
+        onEnterForward: () => trigger(),
+      }),
+    });
   }, [trigger]);
 
   return { ref, trigger };
 }
 
-/* ─── Text scramble on mount ─── */
+/* ─── Text scramble using anime.js built-in scrambleText ─── */
 export function useAnimeScramble(finalText: string, options?: { duration?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const played = useRef(false);
 
   useEffect(() => {
-    if (!ref.current || played.current) return;
+    if (!ref.current) return;
     const el = ref.current;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-          const iterations = 20;
-          let current = 0;
-
-          const id = setInterval(() => {
-            el.textContent = finalText
-              .split("")
-              .map((char, i) => {
-                if (i < current) return char;
-                if (char === " ") return " ";
-                return chars[Math.floor(Math.random() * chars.length)];
-              })
-              .join("");
-
-            current += finalText.length / iterations;
-            if (current >= finalText.length) {
-              el.textContent = finalText;
-              clearInterval(id);
-            }
-          }, (options?.duration ?? 1000) / iterations);
-
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
+    import("animejs").then(({ scrambleText }) => {
+      animate(el, {
+        innerHTML: scrambleText({ text: finalText, from: "left", ease: "outExpo" }),
+        duration: options?.duration ?? 1500,
+        ease: "outExpo",
+        autoplay: onScroll({ target: el, enter: "100%" }),
+      });
+    });
   }, [finalText, options?.duration]);
+
+  return ref;
+}
+
+/* ─── Layout-aware container for animated reordering ─── */
+export function useAnimeLayout(selector: string) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const el = ref.current;
+
+    const layout = createLayout(el, {
+      children: selector,
+      duration: 400,
+      ease: "outExpo",
+    });
+
+    layout.record();
+
+    return () => {
+      layout.revert();
+    };
+  }, [selector]);
 
   return ref;
 }

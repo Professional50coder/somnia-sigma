@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { animate, stagger, spring } from "animejs";
+import { animate, stagger, spring, onScroll } from "animejs";
 import { TrendingUp, Target, BarChart3, Activity, Zap, Shield } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { PerformanceStats } from "@/lib/types";
@@ -35,38 +35,40 @@ export function StatsCards({ stats }: StatsCardsProps) {
   useEffect(() => {
     if (!containerRef.current || played.current) return;
     const el = containerRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !played.current) {
-          played.current = true;
-          const items = el.querySelectorAll("[data-stat]");
-          animate(items, {
-            opacity: [0, 1],
-            translateY: [20, 0],
-            scale: [0.92, 1],
-            duration: 600,
-            delay: stagger(60),
-            ease: spring({ stiffness: 300, damping: 22 }),
-          });
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    played.current = true;
+
+    const items = el.querySelectorAll("[data-stat]");
+    animate(items, {
+      opacity: [0, 1],
+      translateY: [20, 0],
+      scale: [0.92, 1],
+      duration: 600,
+      delay: stagger(60, { from: "center", jitter: 40 }),
+      ease: spring({ stiffness: 300, damping: 22 }),
+      autoplay: onScroll({ target: el, enter: "100%" }),
+    });
   }, []);
 
-  // Hover animations
+  // Hover animations using keyframes multi-bounce
   useEffect(() => {
     if (!containerRef.current) return;
     const items = containerRef.current.querySelectorAll("[data-stat]");
     items.forEach((item) => {
       const enter = () => {
-        animate(item, { scale: [1, 1.04], translateY: [0, -2], duration: 200, ease: "outQuad" });
+        animate(item, {
+          scale: [1, 1.04, 0.98, 1.02, 1],
+          translateY: [0, -4, 0, -2, 0],
+          duration: 500,
+          ease: "outBounce",
+        });
       };
       const leave = () => {
-        animate(item, { scale: [1.04, 1], translateY: [-2, 0], duration: 200, ease: "outQuad" });
+        animate(item, {
+          scale: [1.04, 1],
+          translateY: [-2, 0],
+          duration: 200,
+          ease: "outQuad",
+        });
       };
       item.addEventListener("mouseenter", enter);
       item.addEventListener("mouseleave", leave);

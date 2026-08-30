@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { animate, stagger } from "animejs";
+import { animate, stagger, onScroll } from "animejs";
 import { Activity, Filter, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { SigmaNav } from "@/components/sigma/sigma-nav";
 import { MarketCard } from "@/components/sigma/market-card";
 import { CategoryFilter } from "@/components/sigma/category-filter";
 import { StatsCards } from "@/components/sigma/stats-cards";
+import { EdgeRadar3D } from "@/components/sigma/edge-radar-3d";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { useSigmaData } from "@/hooks/use-sigma-data";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -124,23 +125,26 @@ export default function EdgeRadarPage() {
     return result;
   }, [windows, category, intervalFilter, showWatchedOnly, watchlist]);
 
-  // Animate grid cards when filteredWindows change
+  // Animate grid cards when filteredWindows change (using onScroll + stagger from grid)
   useEffect(() => {
     if (!gridRef.current) return;
     const cards = gridRef.current.querySelectorAll("[data-card]");
     if (cards.length === 0) return;
+    const cols = window.innerWidth >= 1024 ? 3 : window.innerWidth >= 768 ? 2 : 1;
     animate(cards, {
       opacity: [0, 1],
       translateY: [16, 0],
       scale: [0.95, 1],
       duration: 400,
-      delay: stagger(50, { from: "first" }),
+      delay: stagger(50, { from: "center", grid: [cols, Math.ceil(cards.length / cols)], jitter: 80 }),
       ease: "outExpo",
     });
   }, [filteredWindows.length]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#070709" }}>
+    <div className="h-screen flex flex-col overflow-hidden relative" style={{ backgroundColor: "#070709" }}>
+      <div className="absolute inset-0 opacity-40"><EdgeRadar3D /></div>
+      <div className="relative z-10 flex flex-col h-full">
       <SigmaNav />
 
       <main className="flex-1 overflow-y-auto">
@@ -298,6 +302,7 @@ export default function EdgeRadarPage() {
           </span>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

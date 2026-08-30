@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { animate, stagger } from "animejs";
+import { animate, stagger, onScroll } from "animejs";
 import { BarChart3, TrendingUp, Target, Activity, Info, AlertTriangle } from "lucide-react";
 import { SigmaNav } from "@/components/sigma/sigma-nav";
+import { Backtest3D } from "@/components/sigma/backtest-3d";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Progress } from "@/components/ui/progress";
@@ -151,7 +152,7 @@ export default function BacktestPage() {
     }
   }, []);
 
-  // Animate summary cards when results load
+  // Animate summary cards when results load (using stagger from center)
   useEffect(() => {
     if (!results || !cardsRef.current) return;
     const cards = cardsRef.current.querySelectorAll("[data-card]");
@@ -160,13 +161,15 @@ export default function BacktestPage() {
       translateY: [20, 0],
       scale: [0.92, 1],
       duration: 500,
-      delay: stagger(60),
+      delay: stagger(60, { from: "center", jitter: 30 }),
       ease: "outExpo",
     });
   }, [results]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#070709" }}>
+    <div className="h-screen flex flex-col overflow-hidden relative" style={{ backgroundColor: "#070709" }}>
+      <div className="absolute inset-0 opacity-40"><Backtest3D /></div>
+      <div className="relative z-10 flex flex-col h-full">
       <SigmaNav />
 
       <main className="flex-1 overflow-y-auto">
@@ -367,6 +370,7 @@ export default function BacktestPage() {
           </div>
         </div>
       </main>
+      </div>
     </div>
   );
 }
