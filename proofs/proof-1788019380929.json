@@ -1,0 +1,31 @@
+{
+  "steps": [
+    {
+      "step": "balances",
+      "deployerSTT": "0.0012076956",
+      "botSTT": "50.00018008",
+      "deployerAddress": "0x0dDb3093df73Ca59F33420670125e0C686c0A468",
+      "botAddress": "0x7F8F17738f2901D291e465249a177F009E582ad9"
+    },
+    {
+      "step": "fund",
+      "action": "transfer STT"
+    },
+    {
+      "step": "pushPrices",
+      "count": 5
+    },
+    {
+      "step": "volState",
+      "sampleCount": 69,
+      "lastPrice": "79428.74",
+      "sigmaOk": false
+    },
+    {
+      "step": "publish",
+      "status": "no live markets"
+    }
+  ],
+  "txs": [],
+  "timestamp": "2026-08-29T16:02:49.207Z"
+}

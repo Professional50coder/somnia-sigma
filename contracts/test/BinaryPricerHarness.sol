@@ -42,4 +42,19 @@ contract BinaryPricerHarness {
     function kellyFractionWad(uint256 modelProbWad, uint256 priceWad) external pure returns (uint256) {
         return BinaryPricer.kellyFractionWad(modelProbWad, priceWad);
     }
+
+    function studentCdf(int256 xWad, uint256 nuWad) external pure returns (uint256) {
+        return BinaryPricer.studentCdf(xWad, nuWad);
+    }
+
+    function studentProbUp(
+        uint256 spotWad,
+        uint256 strikeWad,
+        uint256 sigmaWad,
+        uint256 tauWad,
+        uint256 nuWad,
+        BinaryPricer.SettlementStyle style
+    ) external pure returns (uint256) {
+        return BinaryPricer.studentProbUp(spotWad, strikeWad, sigmaWad, tauWad, nuWad, style);
+    }
 }

@@ -117,21 +117,21 @@
   "thresholdSweep": [
     {
       "thresholdBps": 100,
-      "trades": 996,
-      "winRate": 0.893574297188755,
-      "avgPnlPerTrade": -0.08642570281124598
+      "trades": 3809,
+      "winRate": 0.6166972958781832,
+      "avgPnlPerTrade": -0.004319096607382998
     },
     {
       "thresholdBps": 200,
-      "trades": 135,
-      "winRate": 0.9555555555555556,
-      "avgPnlPerTrade": -0.02444444444444443
+      "trades": 1688,
+      "winRate": 0.5853080568720379,
+      "avgPnlPerTrade": 0.017238833372619642
     },
     {
       "thresholdBps": 500,
-      "trades": 0,
-      "winRate": null,
-      "avgPnlPerTrade": null
+      "trades": 45,
+      "winRate": 0.6444444444444445,
+      "avgPnlPerTrade": 0.11734365543946956
     },
     {
       "thresholdBps": 1000,
@@ -145,5 +145,72 @@
       "winRate": null,
       "avgPnlPerTrade": null
     }
-  ]
+  ],
+  "studentT": {
+    "nu": 5.202801149240514,
+    "brier": 0.20069667309535766,
+    "logloss": 0.589795028372966,
+    "calibration": [
+      {
+        "bucket": 0,
+        "n": 562,
+        "meanPredicted": 0.05094246566135488,
+        "realisedFreq": 0.14056939501779359
+      },
+      {
+        "bucket": 1,
+        "n": 562,
+        "meanPredicted": 0.13260921121837085,
+        "realisedFreq": 0.22419928825622776
+      },
+      {
+        "bucket": 2,
+        "n": 562,
+        "meanPredicted": 0.24299623662525438,
+        "realisedFreq": 0.30604982206405695
+      },
+      {
+        "bucket": 3,
+        "n": 562,
+        "meanPredicted": 0.34384525805449556,
+        "realisedFreq": 0.3594306049822064
+      },
+      {
+        "bucket": 4,
+        "n": 562,
+        "meanPredicted": 0.4225547732087628,
+        "realisedFreq": 0.4234875444839858
+      },
+      {
+        "bucket": 5,
+        "n": 562,
+        "meanPredicted": 0.4991745823152802,
+        "realisedFreq": 0.4092526690391459
+      },
+      {
+        "bucket": 6,
+        "n": 562,
+        "meanPredicted": 0.584822063642139,
+        "realisedFreq": 0.5142348754448398
+      },
+      {
+        "bucket": 7,
+        "n": 562,
+        "meanPredicted": 0.6917718409472212,
+        "realisedFreq": 0.6067615658362989
+      },
+      {
+        "bucket": 8,
+        "n": 562,
+        "meanPredicted": 0.8325822169809806,
+        "realisedFreq": 0.7669039145907474
+      },
+      {
+        "bucket": 9,
+        "n": 562,
+        "meanPredicted": 0.944407125925145,
+        "realisedFreq": 0.9145907473309609
+      }
+    ]
+  }
 }

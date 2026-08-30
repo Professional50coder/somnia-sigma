@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { probUp } from "./pricer.mjs";
+import { probUp, studentProbUp, estimateNu } from "./pricer.mjs";
 
 const { source, bars } = JSON.parse(readFileSync(new URL("./data/btc_m1.json", import.meta.url)));
 const BAR_SEC = 60;
@@ -54,6 +54,14 @@ function sigmaForWindow(i, windowSec) {
   return Math.sqrt(s.varianceRate * windowSec);
 }
 
+// Estimate nu from the full return series
+const allReturns = [];
+for (let i = 1; i < bars.length; i++) {
+  allReturns.push(Math.log(bars[i].close / bars[i - 1].close));
+}
+const estimatedNu = estimateNu(allReturns);
+console.log(`  Estimated nu (degrees of freedom): ${estimatedNu.toFixed(2)}`);
+
 for (const cad of CADENCES) {
   for (let start = 0; start + cad.windowBars < bars.length; start += cad.windowBars) {
     const openIdx = start;
@@ -70,7 +78,8 @@ for (const cad of CADENCES) {
       if (sigma === null || sigma === 0) continue;
       const spot = bars[i].close;
       const predicted = probUp(spot, K, sigma, tau);
-      points.push({ tau, cadence: cad.name, predicted, outcome: outcomeUp });
+      const studentPredicted = studentProbUp(spot, K, sigma, tau, estimatedNu);
+      points.push({ tau, cadence: cad.name, predicted, studentPredicted, outcome: outcomeUp });
     }
   }
 }
@@ -80,24 +89,38 @@ points.sort((a, b) => a.predicted - b.predicted);
 const nBuckets = 10;
 const bucketSize = Math.ceil(points.length / nBuckets);
 const calibration = [];
+const studentCalibration = [];
 for (let b = 0; b < nBuckets; b++) {
   const slice = points.slice(b * bucketSize, (b + 1) * bucketSize);
   if (slice.length === 0) continue;
   const meanPred = slice.reduce((s, p) => s + p.predicted, 0) / slice.length;
+  const meanStudentPred = slice.reduce((s, p) => s + p.studentPredicted, 0) / slice.length;
   const freq = slice.reduce((s, p) => s + p.outcome, 0) / slice.length;
   calibration.push({ bucket: b, n: slice.length, meanPredicted: meanPred, realisedFreq: freq });
+  studentCalibration.push({ bucket: b, n: slice.length, meanPredicted: meanStudentPred, realisedFreq: freq });
 }
 
 // ---- Brier score + log loss ----
 let brier = 0, logloss = 0;
+let studentBrier = 0, studentLogloss = 0;
 const eps = 1e-9;
 for (const p of points) {
   brier += (p.predicted - p.outcome) ** 2;
   const pc = Math.min(1 - eps, Math.max(eps, p.predicted));
   logloss += -(p.outcome * Math.log(pc) + (1 - p.outcome) * Math.log(1 - pc));
+
+  studentBrier += (p.studentPredicted - p.outcome) ** 2;
+  const sc = Math.min(1 - eps, Math.max(eps, p.studentPredicted));
+  studentLogloss += -(p.outcome * Math.log(sc) + (1 - p.outcome) * Math.log(1 - sc));
 }
 brier /= points.length;
 logloss /= points.length;
+studentBrier /= points.length;
+studentLogloss /= points.length;
+
+console.log(`\n  Gaussian  — Brier: ${brier.toFixed(4)}  Log loss: ${logloss.toFixed(4)}`);
+console.log(`  Student-t — Brier: ${studentBrier.toFixed(4)}  Log loss: ${studentLogloss.toFixed(4)}`);
+console.log(`  Improvement: ${((brier - studentBrier) / brier * 100).toFixed(2)}% Brier, ${((logloss - studentLogloss) / logloss * 100).toFixed(2)}% log loss\n`);
 
 // ---- breakout by tau bucket (quintiles of tau) and by cadence ----
 function summarize(filterFn) {
@@ -203,6 +226,12 @@ const results = {
   source, totalBars: bars.length, totalCheckpoints: points.length,
   lambdaBar: LAMBDA_BAR, minSamples: MIN_SAMPLES,
   brier, logloss, calibration, tauBuckets, byCadence, thresholdSweep: sweep,
+  studentT: {
+    nu: estimatedNu,
+    brier: studentBrier,
+    logloss: studentLogloss,
+    calibration: studentCalibration,
+  },
 };
 writeFileSync(new URL("./results.json", import.meta.url), JSON.stringify(results, null, 2));
 console.log(JSON.stringify(results, null, 2));

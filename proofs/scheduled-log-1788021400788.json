@@ -1,0 +1,5 @@
+{"type":"start","mode":"once","timestamp":"2026-08-29T16:36:40.798Z"}
+{"type":"push","price":"77965.35","hash":"0x90aefa2d47d917db39ac8cfb945a3882f9d4373b6ee201f1090902fadbe3b985","status":"success","block":474484233,"timestamp":"2026-08-29T16:36:46.399Z"}
+{"type":"watch","total":0,"live":0,"timestamp":"2026-08-29T16:36:52.990Z"}
+{"type":"state","block":474484349,"sampleCount":131,"lastPriceUsd":"77965.35","sigmaWad":"757581609815734","sigmaOk":true,"deployerSTT":"0.9766334356","pushCount":1,"skipCount":0,"txCount":1,"uptimeMin":0,"timestamp":"2026-08-29T16:36:55.084Z"}
+{"type":"end","pushCount":1,"skipCount":0,"txCount":1,"timestamp":"2026-08-29T16:36:55.094Z"}

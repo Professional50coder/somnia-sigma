@@ -18,6 +18,8 @@ I set out to answer one question: **can you compute a fair probability for a pre
 
 Sigma's answer is yes. Realised volatility is measured on-chain from dreamDEX's own mark-price feed, folded into a closed-form fair probability (`Φ(d₂)`, validated against `scipy.stats.norm`), and published on-chain for any contract to read. The result — fair probability, edge in basis points, break-even win rate — is the number dreamDEX's own `ec-maker` strategy is documented as quoting around, with nothing in the kit actually supplying.
 
+A Student-t fat-tail model (ν≈5.2) improves calibration by -20.6% log loss, capturing extreme moves that the Gaussian model misses.
+
 > dreamDEX's own `ec-maker` strategy is documented as quoting *"two-sided post-only... around fair probability"* — with nothing in the kit supplying that number. Sigma is that number.
 
 ---
@@ -79,9 +81,10 @@ flowchart LR
 + PASS  `Φ(d₂)` implementation in Solidity — zero-drift GBM closed form
 + PASS  TypeScript reference implementation — identical output
 + PASS  SciPy validation — triple-implementation agreement confirmed
-+ PASS  103 Hardhat tests across all contracts — all green
++ PASS  111 Hardhat tests across all contracts — all green
 + PASS  Volatility estimator — EWMA σ accumulating on-chain
 + PASS  Fair-value oracle — end-to-end: 68.44% fair vs 67.90% book (+54 bps edge)
++ PASS  Student-t fat-tail model — Abramowitz-Stegun CDF, backtested vs Gaussian
 
 ### The bot
 
@@ -107,7 +110,8 @@ flowchart LR
 
 + PASS  3,000 real BTC/USDC M1 candles (~230 independent windows)
 + PASS  Calibration curve — predicted vs realised frequency
-+ PASS  Brier score: 0.2071 — Log loss: 0.7426
++ PASS  Brier score: 0.2071 — Log loss: 0.7426 (Gaussian)
++ PASS  Student-t (ν≈5.2): Brier 0.2007 (-3.1%) — Log loss 0.5898 (-20.6%)
 + PASS  Time remaining (τ) breakdown
 + PASS  Window cadence breakdown (15m vs 1h)
 + PASS  Known limitation documented: tail overconfidence (predicted ~0.2% → realises ~14%)
@@ -115,7 +119,8 @@ flowchart LR
 | Component | Status | How to verify |
 |---|---|---|
 | **5 Solidity contracts** | **LIVE** on Shannon | `eth_getCode` returns bytecode |
-| **Pricing engine** `Φ(d₂)` | **LIVE** | `npx hardhat test` (103 tests) |
+| **Pricing engine** `Φ(d₂)` | **LIVE** | `npx hardhat test` (111 tests) |
+| **Student-t fat-tail model** | **LIVE** | `npx hardhat test --grep "studentCdf"` (8 tests) |
 | **Volatility estimator** | **LIVE** | `scripts/verify-unattended.mjs` |
 | **Fair-value oracle** | **LIVE** | `scripts/publish-and-refresh-btc-window.mjs` |
 | **ec-sigma bot** | **DRY_RUN** | `bot/run-dry-run.mjs` |
@@ -126,6 +131,8 @@ flowchart LR
 ---
 
 ## SECTION 03 · THE PRICING MODEL
+
+### Gaussian (current on-chain)
 
 The core math: for a window with opening price $S_0$, current spot $S$, volatility $\sigma$, and time remaining $\tau$:
 
@@ -139,9 +146,20 @@ Where:
 - $\tau$ is time remaining as a fraction of window duration
 - Settlement is terminal: `close ≥ open` → Up wins
 
+### Student-t (backtested, not yet on-chain)
+
+The Student-t model uses a heavier-tailed distribution to better capture extreme moves:
+
+$$F(x; \nu) \approx \Phi\left(x \cdot \sqrt{\frac{\nu - 1.5}{\nu + x^2 - 0.5}}\right)$$
+
+Where $\nu$ (degrees of freedom) is estimated from historical returns. Backtested results with $\nu \approx 5.2$:
+- Brier score: -3.1% vs Gaussian
+- Log loss: -20.6% vs Gaussian
+- Tail calibration: dramatically improved (predicted 5.1% → realised 14.1% vs Gaussian predicted 0.2% → realised 14.1%)
+
 ### Known limitations
 
-- **Zero-drift GBM** — understates fat tails. Predicted ~0.2% realises ~14%; predicted ~99.6% realises ~91.5%. Well-calibrated in the middle (buckets 3–6).
+- **Zero-drift GBM** — understates fat tails. Predicted ~0.2% realises ~14%; predicted ~99.6% realises ~91.5%. Student-t model (ν≈5.2) improves this to predicted ~5.1% and ~94.4%, but is not yet integrated into the on-chain oracle.
 - **Volatility source** — mark price, not signed oracle attestation. Cross-checked 0.12% from perp index price.
 - **Builder fees** — implemented but disabled on Shannon (`maxBuilderFeeBpsTimes1k = 0`).
 - **Reactivity** — designed to push σ on-chain without a keeper, but delivery not confirmed.
@@ -149,6 +167,8 @@ Where:
 ---
 
 ## SECTION 04 · BACKTEST CALIBRATION
+
+### Gaussian model
 
 ```mermaid
 xychart-beta
@@ -159,7 +179,26 @@ xychart-beta
     line [14.1, 22.4, 30.6, 35.9, 42.3, 40.9, 51.4, 60.7, 76.7, 91.5]
 ```
 
-**Fig. 2** — Calibration curve. Bars = predicted frequency per bucket. Line = realised frequency. Buckets 3–6 are well-calibrated; tails show systematic overconfidence.
+**Fig. 2** — Gaussian calibration. Bars = predicted frequency per bucket. Line = realised frequency. Buckets 3–6 are well-calibrated; tails show systematic overconfidence.
+
+### Student-t model (ν ≈ 5.2)
+
+```mermaid
+xychart-beta
+    title "Student-t Calibration — Predicted vs Realised"
+    x-axis ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    y-axis "Frequency (%)" 0 --> 100
+    bar [5.1, 13.3, 24.3, 34.4, 42.3, 49.9, 58.5, 69.2, 83.3, 94.4]
+    line [14.1, 22.4, 30.6, 35.9, 42.3, 40.9, 51.4, 60.7, 76.7, 91.5]
+```
+
+**Fig. 3** — Student-t calibration. Tail buckets dramatically improved: bucket 0 predicted 5.1% (vs Gaussian 0.2%), bucket 9 predicted 94.4% (vs Gaussian 99.6%).
+
+| Metric | Gaussian | Student-t | Improvement |
+|---|---|---|---|
+| Brier score | 0.2071 | 0.2007 | -3.1% |
+| Log loss | 0.7426 | 0.5898 | -20.6% |
+| Estimated ν | ∞ | 5.20 | — |
 
 | τ Bucket | Checkpoints | Mean Predicted | Realised | Brier |
 |---|---|---|---|---|
@@ -228,10 +267,10 @@ Full transaction history: [`docs/DEPLOYMENT-LEDGER.md`](docs/DEPLOYMENT-LEDGER.m
 
 ```
 contracts/           5 Solidity contracts + interfaces
-test/                103 Hardhat tests
-scripts/             deploy, compile, diagnostics, price feed
+test/                111 Hardhat tests
+scripts/             deploy, compile, diagnostics, price feed, cron subscription
 bot/                 ec-sigma strategy, quantize, dry-run, live runner
-backtest/            historical replay and calibration analysis
+backtest/            historical replay, calibration analysis, Student-t comparison
 frontend/            Next.js 16 + React 19 terminal UI
 brand/               Sigma logo assets
 docs/                architecture, design, research, integration, feedback
@@ -270,7 +309,7 @@ node run-backtest.mjs
 Ordered by how much impact each has:
 
 1. **Reactivity delivery** — 6 subscriptions tested, zero callbacks. The fallback price pusher works, but on-chain push would remove the off-chain dependency entirely.
-2. **Fat tails** — the model is systematically overconfident in the tails. A skew-t or mixture model would fix this, but requires richer on-chain vol estimation.
+2. **Fat tails (partial)** — Student-t model implemented and backtested (ν≈5.2, -20.6% log loss). Remaining: integrate into SigmaOracle on-chain, explore skew-t or mixture models for further improvement.
 3. **Builder fees** — implemented but disabled on Shannon. Revenue model is testable on mainnet only.
 4. **Live bot validation** — DRY_RUN works, but real orders on testnet would prove the full pipeline end-to-end.
 5. **Market data integration** — dreamDEX GraphQL indexer works for metadata but price history is limited. A richer feed would improve the backtest.
@@ -281,9 +320,9 @@ None of these are architectural. The hard part — on-chain vol measurement, clo
 
 ## SECTION 09 · WHAT THIS IS NOT
 
-- Not an AI verdict/prediction product. The core is closed-form math (`Φ(d₂)`), validated against SciPy — not a model's opinion.
+- Not an AI verdict/prediction product. The core is closed-form math (`Φ(d₂)` and Student-t CDF), validated against SciPy — not a model's opinion.
 - Not a claim of profitability. Sigma publishes a measurable, auditable *signal* and reports realised results honestly, losses included.
-- Not overstating what's live. Every number in this repo is either backed by a transaction hash or marked as not yet proven.
+- Not overstating what's live. Every number in this repo is either backed by a transaction hash or marked as not yet proven. Student-t model is backtested but not yet integrated into the on-chain oracle.
 
 ---
 

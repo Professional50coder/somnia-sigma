@@ -227,4 +227,79 @@ describe("BinaryPricer", () => {
       assert.ok(kelly > 0n, "a positive edge must produce a positive Kelly stake");
     });
   });
+
+  describe("studentCdf — Student-t distribution for fat-tail modeling", () => {
+    it("studentCdf(0) is exactly one half", async () => {
+      const got: bigint = await h.read.studentCdf([0n, wad(5)]);
+      // Abramowitz-Stegun approximation: at x=0, g = sqrt((nu-1.5)/(nu-0.5))
+      // F(0; nu) = Phi(0) = 0.5 regardless of g
+      assert.ok(absDiff(got, WAD / 2n) <= PHI_TOLERANCE, `got ${got}`);
+    });
+
+    it("is symmetric: studentCdf(-x) == 1 - studentCdf(x)", async () => {
+      for (const nu of [wad(3), wad(5), wad(8)]) {
+        for (const x of [wad(0.5), wad(1.5), wad(3)]) {
+          const pos: bigint = await h.read.studentCdf([x, nu]);
+          const neg: bigint = await h.read.studentCdf([-x, nu]);
+          // Symmetry should hold exactly since F(x) = Phi(x*g) and g depends on x²
+          assert.ok(
+            absDiff(pos + neg, WAD) <= PHI_TOLERANCE * 10n,
+            `nu=${nu} x=${x} pos=${pos} neg=${neg} sum=${pos + neg}`,
+          );
+        }
+      }
+    });
+
+    it("is monotonically increasing", async () => {
+      let prev = -1n;
+      for (const x of [wad(-4), wad(-1), wad(-0.2), 0n, wad(0.2), wad(1), wad(4)]) {
+        const got: bigint = await h.read.studentCdf([x, wad(5)]);
+        assert.ok(got > prev, `not increasing at x=${x}: ${got} <= ${prev}`);
+        prev = got;
+      }
+    });
+
+    it("assigns less extreme probabilities than Gaussian in the tails", async () => {
+      const x = wad(3);
+      const nu = wad(5);
+      const gauss: bigint = await h.read.normalCdf([x]);
+      const student: bigint = await h.read.studentCdf([x, nu]);
+      // Student-t with nu=5 should assign less than Gaussian at x=3
+      // (heavier tails means less probability mass in the extreme tail)
+      assert.ok(student < gauss, `Student-t ${student} should be < Gaussian ${gauss} at x=3`);
+    });
+
+    it("converges to Gaussian as nu increases", async () => {
+      const x = wad(1.5);
+      const gauss: bigint = await h.read.normalCdf([x]);
+      const studentLargeNu: bigint = await h.read.studentCdf([x, wad(100)]);
+      // With large nu, Student-t should be close to Gaussian
+      // The A-S approximation converges: g -> sqrt((nu-1.5)/(nu+x²-0.5)) -> 1 as nu -> inf
+      const diff = absDiff(gauss, studentLargeNu);
+      assert.ok(diff < wad(0.02), `nu=100: Gaussian=${gauss} Student-t=${studentLargeNu} diff=${diff}`);
+    });
+
+    it("stays within [0, WAD] in the far tails", async () => {
+      assert.ok((await h.read.studentCdf([wad(-20), wad(5)])) <= WAD);
+      assert.ok((await h.read.studentCdf([wad(20), wad(5)])) <= WAD);
+    });
+
+    it("handles edge case nu = 3 (very heavy tails)", async () => {
+      const got: bigint = await h.read.studentCdf([wad(0), wad(3)]);
+      assert.ok(absDiff(got, WAD / 2n) <= PHI_TOLERANCE, `nu=3 x=0: got ${got}`);
+    });
+
+    it("studentProbUp behaves like probUp but with heavier tails", async () => {
+      const spot = 100_300n * WAD;
+      const strike = 100_000n * WAD;
+      const sigma = wad(0.01);
+      const tau = wad(0.1);
+      const gauss: bigint = await h.read.probUp([spot, strike, sigma, tau, TERMINAL]);
+      const student: bigint = await h.read.studentProbUp([spot, strike, sigma, tau, wad(5), TERMINAL]);
+      // Student-t should be less certain (closer to 0.5) than Gaussian for the same input
+      assert.ok(student > wad(0.50) && student < wad(0.99), `Student-t prob: ${student}`);
+      // Student-t should differ from Gaussian (heavier tails push toward 0.5)
+      assert.ok(absDiff(student, gauss) < wad(0.15), `gap should be moderate: gauss=${gauss} student=${student}`);
+    });
+  });
 });

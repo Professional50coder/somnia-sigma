@@ -27,11 +27,9 @@ const deployments = JSON.parse(readFileSync(resolve(ROOT, "deployments/somniaTes
 const ORACLE_ADDRESS = deployments.oracle;
 const REGISTRY_ADDRESS = deployments.registry;
 
-// ── Oracle ABI ───────────────────────────────────────────────────────────────
+// ── Oracle ABI (from compiled artifact) ─────────────────────────────────────
 
-const ORACLE_ABI = [
-  parseAbiItem("function getFairValue(bytes32 marketId) view returns (tuple(uint256 fairProbBps, uint256 impliedProbBps, int256 edgeBps, uint256 breakEvenBps, uint256 kellyWad, uint256 sigmaWad, uint256 tauWad, uint64 updatedAt, uint8 reason, bool ok))"),
-];
+const ORACLE_ABI = JSON.parse(readFileSync(resolve(ROOT, "artifacts/sigma/SigmaOracle.json"), "utf8")).abi;
 
 // ── Public client (read-only, viem) ──────────────────────────────────────────
 

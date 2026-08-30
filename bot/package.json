@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@somnia-chain/markets-sdk": "0.28.1",
+    "dotenv": "^16.4.7",
     "viem": "^2.56.0"
   }
 }

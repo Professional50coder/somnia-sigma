@@ -22,6 +22,7 @@
  *   AUTO_CLAIM_INTERVAL_MS=600000
  */
 
+import "dotenv/config";
 import { createPublicClient, http, parseAbiItem } from "viem";
 import { somniaTestnet } from "viem/chains";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";

@@ -1,0 +1,67 @@
+{
+  "steps": [
+    {
+      "step": "balances",
+      "deployerSTT": "0.0012076956",
+      "botSTT": "50.00018008",
+      "deployerAddress": "0x0dDb3093df73Ca59F33420670125e0C686c0A468",
+      "botAddress": "0x7F8F17738f2901D291e465249a177F009E582ad9"
+    },
+    {
+      "step": "fund",
+      "action": "transfer STT"
+    },
+    {
+      "step": "pushPrices",
+      "count": 5
+    },
+    {
+      "step": "volState",
+      "sampleCount": 74,
+      "lastPrice": "77880.42",
+      "sigmaOk": true
+    },
+    {
+      "step": "publish",
+      "status": "no live markets"
+    }
+  ],
+  "txs": [
+    {
+      "type": "fund",
+      "hash": "0x66e50ef30247e19c27968a9b394854cf5949a02b144714fc40ced3dbacfce104",
+      "status": "success"
+    },
+    {
+      "type": "recordPrice",
+      "hash": "0x9445b059529cc35ee9a2b164f39b7e5b6cb073b5d872ed77ad97461c1f96f072",
+      "price": "77880.16",
+      "status": "success"
+    },
+    {
+      "type": "recordPrice",
+      "hash": "0xcf71fb2137c891fc240ab09ef77dc44611fcfa511702a331e41eb086a0592f9d",
+      "price": "77880.25",
+      "status": "success"
+    },
+    {
+      "type": "recordPrice",
+      "hash": "0xab317fef24cb36d1e61a92e8fc1bcf0507f49fcc43c835d1e67a8d88292e941e",
+      "price": "77880.32",
+      "status": "success"
+    },
+    {
+      "type": "recordPrice",
+      "hash": "0x659ca1bb81e7ce717583b630ccaec84adde8764942d074517a61e2ddcfdf1726",
+      "price": "77880.37",
+      "status": "success"
+    },
+    {
+      "type": "recordPrice",
+      "hash": "0x2666896a6a448528ecd1794523558a546c5dfc1f819fdcf1d9f5a7dd09b9154d",
+      "price": "77880.42",
+      "status": "success"
+    }
+  ],
+  "timestamp": "2026-08-29T16:03:56.580Z"
+}

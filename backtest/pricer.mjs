@@ -46,3 +46,60 @@ export function kellyFraction(modelProb, price) {
   const f = modelProb - (1 - modelProb) * (price / (1 - price));
   return Math.max(0, Math.min(1, f));
 }
+
+/**
+ * Student-t cumulative distribution function.
+ * Uses the Abramowitz & Stegun approximation:
+ * F(x; nu) ≈ Phi(x * g) where g = sqrt((nu - 1.5) / (nu + x^2 - 0.5))
+ * Accurate to ~1e-3 for nu > 2.
+ */
+export function studentCdf(x, nu) {
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+
+  // g = sqrt((nu - 1.5) / (nu + x^2 - 0.5))
+  const gSq = (nu - 1.5) / (nu + x * x - 0.5);
+  const g = Math.sqrt(Math.max(0, gSq));
+
+  return normalCdf(sign * x * g);
+}
+
+/**
+ * Student-t version of probUp: uses Student-t CDF instead of Gaussian.
+ */
+export function studentProbUp(spot, strike, sigma, tau, nu) {
+  return studentCdf(d2(spot, strike, sigma, tau), nu);
+}
+
+/**
+ * Compare Gaussian vs Student-t for given parameters.
+ * Returns { gaussian, studentT } probabilities.
+ */
+export function compareModels(spot, strike, sigma, tau, nu) {
+  return {
+    gaussian: probUp(spot, strike, sigma, tau),
+    studentT: studentProbUp(spot, strike, sigma, tau, nu),
+  };
+}
+
+/**
+ * Estimate optimal nu (degrees of freedom) from return series.
+ * Uses method of moments: kurtosis of Student-t = 6/(nu-4) for nu > 4.
+ * excess_kurtosis = mean((r - mean)^4) / std^4 - 3
+ * nu = 4 + 6 / excess_kurtosis (clamped to [2.5, 30])
+ */
+export function estimateNu(returns) {
+  const n = returns.length;
+  if (n < 10) return 5; // default fallback
+
+  const mean = returns.reduce((s, r) => s + r, 0) / n;
+  const m2 = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / n;
+  const m4 = returns.reduce((s, r) => s + (r - mean) ** 4, 0) / n;
+
+  const kurtosis = m4 / (m2 * m2); // excess + 3
+  const excessKurtosis = kurtosis - 3;
+
+  if (excessKurtosis <= 0.01) return 30; // near-Gaussian
+  const nu = 4 + 6 / excessKurtosis;
+  return Math.max(2.5, Math.min(30, nu));
+}

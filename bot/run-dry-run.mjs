@@ -16,6 +16,7 @@
  *   INTERVAL_MS=30000         poll interval in ms
  */
 
+import "dotenv/config";
 import { createPublicClient, http, parseAbiItem } from "viem";
 import { somniaTestnet } from "viem/chains";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
@@ -32,11 +33,9 @@ const ROOT = resolve(__dirname, "..");
 const deployments = JSON.parse(readFileSync(resolve(ROOT, "deployments/somniaTestnet.json"), "utf8"));
 const ORACLE_ADDRESS = deployments.oracle;
 
-// ── Oracle ABI ───────────────────────────────────────────────────────────────
+// ── Oracle ABI (from compiled artifact, avoids parseAbiItem tuple issues) ────
 
-const ORACLE_ABI = [
-  parseAbiItem("function getFairValue(bytes32 marketId) view returns (tuple(uint256 fairProbBps, uint256 impliedProbBps, int256 edgeBps, uint256 breakEvenBps, uint256 kellyWad, uint256 sigmaWad, uint256 tauWad, uint64 updatedAt, uint8 reason, bool ok))"),
-];
+const ORACLE_ABI = JSON.parse(readFileSync(resolve(ROOT, "artifacts/sigma/SigmaOracle.json"), "utf8")).abi;
 
 // ── Public client ────────────────────────────────────────────────────────────
 
