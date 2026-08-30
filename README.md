@@ -16,6 +16,10 @@ Contract addresses on Somnia Shannon testnet (chain 50312) — see [§ 06](#sect
 
 Sigma is an on-chain fair-value and trading intelligence layer for **dreamDEX Event Contracts on Somnia**. It computes the probability that an event contract will settle YES or NO, measures the difference between fair value and the market price, and exposes the resulting signal directly on-chain.
 
+### Demo
+
+[![Sigma Demo](https://img.youtube.com/vi/nm2qWuQs7RU/0.jpg)](https://youtu.be/nm2qWuQs7RU)
+
 ---
 
 ## SECTION 01 · THE PROBLEM
@@ -314,6 +318,20 @@ Then it gives you a number you can inspect.
 That is the layer Sigma adds to prediction markets.
 
 > dreamDEX's own `ec-maker` strategy is documented as quoting *"two-sided post-only... around fair probability"* — with nothing in the kit supplying that number. Sigma is that number.
+
+---
+
+## SECTION 11 · WHAT SIGMA DELIVERS
+
+| What judges look for | What Sigma delivers |
+|---|---|
+| **Innovation** — a novel use of Event Contracts | On-chain fair probability using closed-form Black-Scholes — the only project computing the price itself rather than quoting, verifying, or wrapping it |
+| **Technical depth** — effective use of DreamDEX APIs/SDKs | 5 Solidity contracts, 111 Hardhat tests, triple-validated math (Solidity + TypeScript + SciPy), on-chain EWMA volatility, complete bot pipeline |
+| **User experience** — intuitive and compelling | Three.js 3D backgrounds, anime.js scroll animations, live Edge Radar with wallet connect, real-time fair value vs market price display |
+| **Ecosystem impact** — potential for adoption | Infrastructure layer any prediction market can read from — bots, frontends, and other contracts all consume the same on-chain signal |
+| **Clear communication** — problem, solution, demo | Live deployment on Shannon testnet, video walkthrough, reproducible repo, honest status table (what's live, what's backtested, what's not yet) |
+
+Sigma is not a trading frontend. It is not an AI agent. It is the **pricing layer** that makes both possible — the number every other project either assumes or cannot verify.
 
 ---
 
