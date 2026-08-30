@@ -268,13 +268,14 @@ Full transaction history: [`docs/DEPLOYMENT-LEDGER.md`](docs/DEPLOYMENT-LEDGER.m
 ```
 contracts/           5 Solidity contracts + interfaces
 test/                111 Hardhat tests
-scripts/             deploy, compile, diagnostics, price feed, cron subscription
+scripts/             deploy, compile, diagnostics, price feed, cron subscription, auto-trade, scheduled-runner, proof-of-work
 bot/                 ec-sigma strategy, quantize, dry-run, live runner
 backtest/            historical replay, calibration analysis, Student-t comparison
 frontend/            Next.js 16 + React 19 terminal UI
 brand/               Sigma logo assets
 docs/                architecture, design, research, integration, feedback
 deployments/         Shannon testnet deployment artifacts
+proofs/              operational logs, proof-of-work artifacts, scheduled execution logs
 ```
 
 ### Reproduce it
@@ -300,7 +301,28 @@ node run-live.mjs --live
 # Backtest
 cd backtest
 node run-backtest.mjs
+
+# Scheduled trading runner
+node scripts/scheduled-runner.mjs
+
+# Auto-trade bot
+node scripts/auto-trade.mjs
+
+# Subscribe to BTC price feed
+node scripts/subscribe-cron-btc.mjs
 ```
+
+### Proof of Work
+
+The `proofs/` directory contains operational logs and proof-of-work artifacts:
+
+| File | Description |
+|---|---|
+| `PROOF-OF-WORK-2026-08-29.md` | Proof of work documentation |
+| `proof-*.json` | Automated execution proofs with timestamps |
+| `scheduled-log-*.json` | Scheduled runner execution logs |
+| `runner-output.log` | Runner stdout capture |
+| `runner-error.log` | Runner stderr capture |
 
 ---
 
