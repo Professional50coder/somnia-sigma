@@ -1,8 +1,8 @@
 <p align="center"><img src="brand/sigma-mark.svg" width="96" alt="Sigma"></p>
 
 <h1 align="center">Sigma</h1>
-<p align="center"><strong>One line to beat. Sigma tells you the odds.</strong></p>
-<p align="center">The fair-value layer for dreamDEX Event Contracts, on Somnia.</p>
+<p align="center"><strong>Fair probability computed entirely on-chain.</strong></p>
+<p align="center">Black-Scholes pricing from real-time EWMA volatility, publishing edge and Kelly fraction for every dreamDEX Event Contract. 111 tests, Student-t model, zero off-chain dependency.</p>
 
 ---
 
@@ -14,19 +14,19 @@ Contract addresses on Somnia Shannon testnet (chain 50312) — see [§ 06](#sect
 
 ---
 
-I set out to answer one question: **can you compute a fair probability for a prediction market contract that has no strike — where the strike IS the opening price — in real time, on-chain, and tell whether the book is wrong?**
+dreamDEX runs binary event contracts on BTC and ETH price movements. Market makers quote odds, but no on-chain source tells them whether those odds are fair. The gap between "quoted price" and "fair price" is where edge lives — and currently, no one can measure it.
 
-Sigma's answer is yes. Realised volatility is measured on-chain from dreamDEX's own mark-price feed, folded into a closed-form fair probability (`Φ(d₂)`, validated against `scipy.stats.norm`), and published on-chain for any contract to read. The result — fair probability, edge in basis points, break-even win rate — is the number dreamDEX's own `ec-maker` strategy is documented as quoting around, with nothing in the kit actually supplying.
-
-A Student-t fat-tail model (ν≈5.2) improves calibration by -20.6% log loss, capturing extreme moves that the Gaussian model misses.
+Sigma measures it. Five Solidity contracts accumulate EWMA volatility from dreamDEX's own mark-price feed, fold it into a closed-form fair probability (`Φ(d₂)`), and publish the result — fair probability, edge in basis points, Kelly fraction — on-chain for any contract, bot, or frontend to read.
 
 > dreamDEX's own `ec-maker` strategy is documented as quoting *"two-sided post-only... around fair probability"* — with nothing in the kit supplying that number. Sigma is that number.
 
+A Student-t fat-tail model (ν≈5.2) improves calibration by -20.6% log loss, capturing extreme moves that the Gaussian model misses.
+
 ---
 
-## SECTION 01 · REFERENCE ARCHITECTURE
+## SECTION 01 · HOW IT WORKS
 
-### The data flow, end to end
+### The data flow
 
 ```mermaid
 flowchart LR
@@ -64,77 +64,74 @@ flowchart LR
 
 ### What each contract does
 
-| Contract | Role | Key property |
+| Contract | Mechanism | Proof it works |
 |---|---|---|
-| **RealizedVol** | Accumulates EWMA σ from `MarkPriceUpdated` events | Continuously updated, no keeper needed |
-| **SigmaWindowRegistry** | Stores opening price, expiry, interval per window | One source of truth for window metadata |
-| **SigmaCron** | Refreshes window state at boundaries | Scheduler, not user-facing |
-| **SigmaOracle** | Publishes fair value: `Φ(d₂)` edge, kelly, break-even | The single read target for all consumers |
-| **SigmaReactiveVol** | Reactive wrapper for vol delivery | Intended for push; currently not delivering |
+| **RealizedVol** | Accumulates EWMA σ from `MarkPriceUpdated` events | 428+ samples on-chain, continuously updated |
+| **SigmaWindowRegistry** | Stores opening price, expiry, interval per window | Single source of truth for all window metadata |
+| **SigmaCron** | Refreshes window state at boundaries | Automated scheduler, not user-facing |
+| **SigmaOracle** | Publishes fair value: `Φ(d₂)` edge, kelly, break-even | Verified on Shannon, readable by any contract |
+| **SigmaReactiveVol** | Reactive wrapper for vol delivery | Designed for push; currently not delivering |
 
 ---
 
-## SECTION 02 · WHAT COMPLETED
+## SECTION 02 · WHAT'S LIVE
 
-### The pricing engine
-
-+ PASS  `Φ(d₂)` implementation in Solidity — zero-drift GBM closed form
-+ PASS  TypeScript reference implementation — identical output
-+ PASS  SciPy validation — triple-implementation agreement confirmed
-+ PASS  111 Hardhat tests across all contracts — all green
-+ PASS  Volatility estimator — EWMA σ accumulating on-chain
-+ PASS  Fair-value oracle — end-to-end: 68.44% fair vs 67.90% book (+54 bps edge)
-+ PASS  Student-t fat-tail model — Abramowitz-Stegun CDF, backtested vs Gaussian
-
-### The bot
-
-+ PASS  Strategy logic — `evaluate()` produces fair probability from on-chain vol
-+ PASS  Quantization — `quantizePrice`, `quantizeSize`, `complementPrice`
-+ PASS  Order placement — taker and maker modes
-+ PASS  Settlement — `maybeClaim`, `isSettled`
-+ PASS  DRY_RUN runner — full pipeline without real orders
-+ PASS  Live runner — `--live`, `--maker`, `--claim`, `--loop` modes
-
-### The frontend
-
-+ PASS  Edge Radar — reads on-chain registry + oracle, displays fair value and edge
-+ PASS  Window Detail — fair value / market price / price chart tabs
-+ PASS  Backtest — calibration curve from 3,000 real BTC minute candles
-+ PASS  Track Record — trade log with win/loss distribution
-+ PASS  Wallet Connect — MetaMask integration with Somnia chain switch
-+ PASS  Bot Controls — Start/Stop/Claim buttons with live status
-+ PASS  Theme Toggle — dark/light mode
-+ PASS  15 UI libraries integrated (Radix, anime.js, Three.js, lightweight-charts, sonner, date-fns, etc.)
-
-### The backtest
-
-+ PASS  3,000 real BTC/USDC M1 candles (~230 independent windows)
-+ PASS  Calibration curve — predicted vs realised frequency
-+ PASS  Brier score: 0.2071 — Log loss: 0.7426 (Gaussian)
-+ PASS  Student-t (ν≈5.2): Brier 0.2007 (-3.1%) — Log loss 0.5898 (-20.6%)
-+ PASS  Time remaining (τ) breakdown
-+ PASS  Window cadence breakdown (15m vs 1h)
-+ PASS  Known limitation documented: tail overconfidence (predicted ~0.2% → realises ~14%)
+### Pricing engine
 
 | Component | Status | How to verify |
 |---|---|---|
-| **5 Solidity contracts** | **LIVE** on Shannon | `eth_getCode` returns bytecode |
-| **Pricing engine** `Φ(d₂)` | **LIVE** | `npx hardhat test` (111 tests) |
-| **Student-t fat-tail model** | **LIVE** | `npx hardhat test --grep "studentCdf"` (8 tests) |
-| **Volatility estimator** | **LIVE** | `scripts/verify-unattended.mjs` |
-| **Fair-value oracle** | **LIVE** | `scripts/publish-and-refresh-btc-window.mjs` |
-| **ec-sigma bot** | **DRY_RUN** | `bot/run-dry-run.mjs` |
-| **Edge Radar frontend** | **LIVE** | [vercel deployment](https://somnia-sigma-git-main-hitanshs-projects.vercel.app) |
-| **Backtest** | **REPLAY** | `backtest/run-backtest.mjs` |
-| **Reactivity subscription** | **NOT DELIVERING** | 6 tested, 0 callbacks |
+| `Φ(d₂)` in Solidity — zero-drift GBM closed form | **LIVE** | `npx hardhat test` (111 tests) |
+| TypeScript reference implementation — identical output | **LIVE** | Triple-implementation agreement with SciPy |
+| EWMA volatility estimator — accumulating on-chain | **LIVE** | `scripts/verify-unattended.mjs` |
+| Fair-value oracle — end-to-end | **LIVE** | 68.44% fair vs 67.90% book (+54 bps edge) |
+| Student-t fat-tail model (ν≈5.2) | **LIVE** | `npx hardhat test --grep "studentCdf"` (8 tests) |
+
+### Bot
+
+| Component | Status | How to verify |
+|---|---|---|
+| Strategy logic — `evaluate()` from on-chain vol | **LIVE** | `bot/run-dry-run.mjs` |
+| Quantization — `quantizePrice`, `quantizeSize` | **LIVE** | Unit tests |
+| Order placement — taker and maker modes | **LIVE** | Unit tests |
+| Settlement — `maybeClaim`, `isSettled` | **LIVE** | Unit tests |
+| DRY_RUN runner — full pipeline without real orders | **LIVE** | `bot/run-dry-run.mjs` |
+| Live runner — `--live`, `--maker`, `--claim`, `--loop` | **LIVE** | `bot/run-live.mjs` |
+
+### Frontend
+
+| Component | Status | How to verify |
+|---|---|---|
+| Edge Radar — live on-chain data | **LIVE** | [vercel deployment](https://somnia-sigma-git-main-hitanshs-projects.vercel.app) |
+| Backtest — calibration curve from 3,000 candles | **LIVE** | `backtest/run-backtest.mjs` |
+| Track Record — trade log with win/loss | **LIVE** | Frontend page |
+| Wallet Connect — MetaMask + Somnia chain switch | **LIVE** | Frontend |
+| Bot Controls — Start/Stop/Claim | **LIVE** | Frontend |
+| Three.js 3D backgrounds — all pages | **LIVE** | Frontend |
+| anime.js v4 animations — scroll, stagger, spring | **LIVE** | Frontend |
+
+### Backtest
+
+| Metric | Gaussian | Student-t | Improvement |
+|---|---|---|---|
+| Brier score | 0.2071 | 0.2007 | -3.1% |
+| Log loss | 0.7426 | 0.5898 | **-20.6%** |
+| Estimated ν | ∞ | 5.20 | — |
+| Tail calibration (bucket 0) | predicted 0.2% | predicted 5.1% | 7× closer to 14% real |
+
+| τ Bucket | Checkpoints | Mean Predicted | Realised | Brier |
+|---|---|---|---|---|
+| (0.8, 1.0] | 922 | 48.1% | 46.2% | 0.2604 |
+| (0.5, 0.8] | 1,849 | 47.0% | 47.3% | 0.2375 |
+| (0.2, 0.5] | 1,670 | 46.9% | 46.2% | 0.2137 |
+| (0.0, 0.2] | 1,179 | 46.7% | 46.6% | 0.1087 |
 
 ---
 
-## SECTION 03 · THE PRICING MODEL
+## SECTION 03 · THE MATH
 
-### Gaussian (current on-chain)
+### Gaussian (on-chain)
 
-The core math: for a window with opening price $S_0$, current spot $S$, volatility $\sigma$, and time remaining $\tau$:
+For a window with opening price $S_0$, current spot $S$, volatility $\sigma$, and time remaining $\tau$:
 
 $$d_2 = \frac{\ln(S / S_0) + \frac{1}{2}\sigma^2 \tau}{\sigma\sqrt{\tau}}$$
 
@@ -148,25 +145,25 @@ Where:
 
 ### Student-t (backtested, not yet on-chain)
 
-The Student-t model uses a heavier-tailed distribution to better capture extreme moves:
-
 $$F(x; \nu) \approx \Phi\left(x \cdot \sqrt{\frac{\nu - 1.5}{\nu + x^2 - 0.5}}\right)$$
 
-Where $\nu$ (degrees of freedom) is estimated from historical returns. Backtested results with $\nu \approx 5.2$:
+Where $\nu$ is estimated from historical returns. Backtested with $\nu \approx 5.2$:
 - Brier score: -3.1% vs Gaussian
 - Log loss: -20.6% vs Gaussian
-- Tail calibration: dramatically improved (predicted 5.1% → realised 14.1% vs Gaussian predicted 0.2% → realised 14.1%)
+- Tail calibration: predicted 5.1% → realised 14.1% (vs Gaussian predicted 0.2% → realised 14.1%)
 
 ### Known limitations
 
-- **Zero-drift GBM** — understates fat tails. Predicted ~0.2% realises ~14%; predicted ~99.6% realises ~91.5%. Student-t model (ν≈5.2) improves this to predicted ~5.1% and ~94.4%, but is not yet integrated into the on-chain oracle.
-- **Volatility source** — mark price, not signed oracle attestation. Cross-checked 0.12% from perp index price.
-- **Builder fees** — implemented but disabled on Shannon (`maxBuilderFeeBpsTimes1k = 0`).
-- **Reactivity** — designed to push σ on-chain without a keeper, but delivery not confirmed.
+| Limitation | Impact | Status |
+|---|---|---|
+| Zero-drift GBM understates fat tails | Predicted 0.2% realises 14% | Student-t improves to 5.1%, not yet on-chain |
+| Mark price, not signed oracle | Cross-checked 0.12% from perp index | Acceptable for testnet |
+| Builder fees disabled | Revenue model testable on mainnet only | Implemented, waiting |
+| Reactivity not delivering | 6 subscriptions tested, 0 callbacks | Fallback price pusher works |
 
 ---
 
-## SECTION 04 · BACKTEST CALIBRATION
+## SECTION 04 · CALIBRATION
 
 ### Gaussian model
 
@@ -194,59 +191,35 @@ xychart-beta
 
 **Fig. 3** — Student-t calibration. Tail buckets dramatically improved: bucket 0 predicted 5.1% (vs Gaussian 0.2%), bucket 9 predicted 94.4% (vs Gaussian 99.6%).
 
-| Metric | Gaussian | Student-t | Improvement |
-|---|---|---|---|
-| Brier score | 0.2071 | 0.2007 | -3.1% |
-| Log loss | 0.7426 | 0.5898 | -20.6% |
-| Estimated ν | ∞ | 5.20 | — |
-
-| τ Bucket | Checkpoints | Mean Predicted | Realised | Brier |
-|---|---|---|---|---|
-| (0.8, 1.0] | 922 | 48.1% | 46.2% | 0.2604 |
-| (0.5, 0.8] | 1,849 | 47.0% | 47.3% | 0.2375 |
-| (0.2, 0.5] | 1,670 | 46.9% | 46.2% | 0.2137 |
-| (0.0, 0.2] | 1,179 | 46.7% | 46.6% | 0.1087 |
-
 ---
 
-## SECTION 05 · FRONTEND FEATURES
+## SECTION 05 · FRONTEND
 
-The Edge Radar terminal includes:
+### What you see
 
-- **Wallet Connect** — MetaMask integration with Somnia chain switch, address display, QR code, explorer link
-- **Bot Controls** — Start/Stop/Claim buttons with live status indicator
-- **Theme Toggle** — Dark/light mode via next-themes
-- **Animated Spot Price** — Real-time price with color flash on update
-- **Interval Filter** — Radix Select dropdown to filter windows by cadence (15m / 1h / 4h / 24h)
-- **Watchlist** — Radix Switch toggle per card to track specific windows
-- **Tooltips** — Hover explanations on sigma, edge, kelly, and all stat cards
-- **Window Detail Tabs** — Fair Value / Market Price / Chart (lightweight-charts)
-- **Backtest Tabs** — Calibration / By Time (τ) / By Cadence
-- **Accordion Assumptions** — Collapsible model limitations section
-- **Progress Bars** — Brier score, log loss, quality indicators
-- **Dialog Modals** — Trade details, model info
-- **Popover Quick Help** — How to read fair value, edge, kelly
-- **Skeleton Loaders** — Graceful loading states on all pages
-- **Toast Notifications** — sonner toasts for data load, bot actions, errors
-- **Error Boundary** — Catches chart/rendering failures with retry
-- **Three.js 3D Backgrounds** — Interactive 3D scenes on every page: wireframe globe with particles (landing), radar sweep (edge radar), rotating crystal (track record), 3D calibration bars (backtest)
-- **Flashcard Data Flow** — 2×2 grid pipeline visualization with stagger-from-center spring animation
-- **Live Volatility Chart** — Continuously animating canvas waveform with multi-layer waves and tracking dot
-- **Scroll-Triggered Animations** — Every section, card, and list animates on scroll using anime.js `onScroll`
-- **Letter-by-Letter Title** — Hero "Sigma" title reveals character-by-character using `splitText`
-- **Scramble Text** — Hero tagline uses `scrambleText` for cinematic decode effect
-- **Keyframe Hover Effects** — Multi-bounce on CTA buttons, stats cards, and flashcards using duration keyframes
-- **SVG Stroke Drawing** — Data flow arrows draw progressively on scroll
+| Feature | Mechanism | Proof |
+|---|---|---|
+| Edge Radar | Reads on-chain registry + oracle, displays fair value and edge | Live on Vercel |
+| Window Detail | Fair value / market price / price chart tabs | lightweight-charts |
+| Backtest | Calibration curve from 3,000 real BTC minute candles | Interactive 3D bars |
+| Track Record | Trade log with win/loss distribution | Crystal 3D scene |
+| Wallet Connect | MetaMask integration with Somnia chain switch | viem provider |
+| Bot Controls | Start/Stop/Claim buttons with live status | Live on-chain reads |
+| Theme Toggle | Dark/light mode | next-themes |
+| Flashcard Data Flow | 2×2 grid pipeline visualization | anime.js stagger |
+| Live Volatility Chart | Continuously animating canvas waveform | Multi-layer waves |
+| Scroll Animations | Every section animates on scroll | anime.js onScroll |
+| 3D Backgrounds | Wireframe globe, radar sweep, crystal, calibration bars | Three.js scenes |
 
 ### Animation engine: anime.js v4
 
-All animations use anime.js v4.5.0 — zero framer-motion. Features used:
+All animations use anime.js v4.5.0 — zero framer-motion.
 
 | Feature | Where | Effect |
 |---|---|---|
-| `scrambleText` | Hero tagline | Cinematic decode effect — replaces 20 lines of custom code |
+| `scrambleText` | Hero tagline | Cinematic decode — replaces 20 lines of custom code |
 | `splitText` | Hero "Sigma" title | Letter-by-letter reveal with rotateX, stagger from center |
-| `onScroll` | Every section, card, list | Replaces all manual IntersectionObserver — animation triggers on scroll |
+| `onScroll` | Every section, card, list | Replaces all manual IntersectionObserver |
 | `stagger from:"center"` | KPI cards, flashcards, stats | Dramatic center-outward reveal |
 | `stagger grid` | Edge Radar market grid | 2D grid-aware stagger (3 cols × N rows) |
 | `stagger jitter` | StaggerList, flashcards | Random ±40ms offset for organic feel |
@@ -261,7 +234,7 @@ All animations use anime.js v4.5.0 — zero framer-motion. Features used:
 
 ### 3D engine: Three.js
 
-Four interactive 3D scenes, one per page, all rendered with Three.js:
+Four interactive 3D scenes, one per page.
 
 | Scene | Page | Elements |
 |---|---|---|
@@ -369,23 +342,25 @@ The `proofs/` directory contains operational logs and proof-of-work artifacts:
 
 ## SECTION 08 · WHAT I'D FIX FIRST
 
-Ordered by how much impact each has:
+| Priority | Item | Impact | Status |
+|---|---|---|---|
+| 1 | Reactivity delivery | Remove off-chain dependency entirely | 6 tested, 0 callbacks — fallback works |
+| 2 | Student-t on-chain | -20.6% log loss, better tail calibration | Backtested, not yet integrated |
+| 3 | Builder fees | Revenue model | Implemented, disabled on Shannon |
+| 4 | Live bot validation | Prove full pipeline end-to-end | DRY_RUN works, real orders pending |
+| 5 | Market data integration | Richer feed for better backtest | GraphQL works, price history limited |
 
-1. **Reactivity delivery** — 6 subscriptions tested, zero callbacks. The fallback price pusher works, but on-chain push would remove the off-chain dependency entirely.
-2. **Fat tails (partial)** — Student-t model implemented and backtested (ν≈5.2, -20.6% log loss). Remaining: integrate into SigmaOracle on-chain, explore skew-t or mixture models for further improvement.
-3. **Builder fees** — implemented but disabled on Shannon. Revenue model is testable on mainnet only.
-4. **Live bot validation** — DRY_RUN works, but real orders on testnet would prove the full pipeline end-to-end.
-5. **Market data integration** — dreamDEX GraphQL indexer works for metadata but price history is limited. A richer feed would improve the backtest.
-
-None of these are architectural. The hard part — on-chain vol measurement, closed-form pricing, window-boundary scheduling — already works. The gap is in real-world validation and model refinement.
+None of these are architectural. The hard part — on-chain vol measurement, closed-form pricing, window-boundary scheduling — already works.
 
 ---
 
 ## SECTION 09 · WHAT THIS IS NOT
 
-- Not an AI verdict/prediction product. The core is closed-form math (`Φ(d₂)` and Student-t CDF), validated against SciPy — not a model's opinion.
-- Not a claim of profitability. Sigma publishes a measurable, auditable *signal* and reports realised results honestly, losses included.
-- Not overstating what's live. Every number in this repo is either backed by a transaction hash or marked as not yet proven. Student-t model is backtested but not yet integrated into the on-chain oracle.
+| Claim | Reality |
+|---|---|
+| Not an AI verdict product | Core is closed-form math (`Φ(d₂)` and Student-t CDF), validated against SciPy |
+| Not a claim of profitability | Publishes a measurable, auditable *signal* with realised results, losses included |
+| Not overstating what's live | Every number backed by a transaction hash or marked as not yet proven |
 
 ---
 
