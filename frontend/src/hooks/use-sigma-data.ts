@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getAllOpenWindows, getVolState } from "@/lib/sigma";
+import { DEMO_WINDOWS, DEMO_VOL } from "@/lib/sample-data";
 import type { WindowWithFair } from "@/lib/types";
 
 export interface VolState {
@@ -20,6 +21,7 @@ export interface SigmaData {
 
 /**
  * Polls on-chain SigmaOracle + registry for live window data.
+ * Falls back to demo data when no on-chain windows exist.
  * Returns windows sorted by expiry (soonest first) with fair values.
  */
 export function useSigmaData(intervalMs: number = 15000) {
@@ -32,7 +34,15 @@ export function useSigmaData(intervalMs: number = 15000) {
   const [error, setError] = useState<string | null>(null);
   const fetcherRef = useRef<() => Promise<SigmaData>>(async () => {
     const [windows, vol] = await Promise.all([getAllOpenWindows(), getVolState()]);
-    return { windows, vol, lastUpdated: new Date() };
+    
+    const useDemoWindows = windows.length === 0;
+    const useDemoVol = !vol || !vol.ok;
+    
+    return {
+      windows: useDemoWindows ? DEMO_WINDOWS : windows,
+      vol: useDemoVol && vol ? { ...DEMO_VOL, lastPrice: vol.lastPrice, sampleCount: vol.sampleCount } : (vol ?? DEMO_VOL),
+      lastUpdated: new Date(),
+    };
   });
 
   const refresh = useCallback(async () => {
