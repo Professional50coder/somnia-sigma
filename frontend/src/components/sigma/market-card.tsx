@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { useRef, useEffect } from "react";
+import { animate } from "animejs";
 import { Star, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -26,21 +27,53 @@ function WindowCountdown({ expiresAt }: { expiresAt: number }) {
 }
 
 export function MarketCard({ window: w, isWatched, onToggleWatch }: MarketCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const fv = w.fairValue;
   const hasEdge = fv?.ok && Math.abs(fv.edgeBps) > 50;
   const edgeDir = (fv?.edgeBps ?? 0) >= 0;
 
+  // Entrance animation
+  useEffect(() => {
+    if (!cardRef.current) return;
+    const el = cardRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          animate(el, {
+            opacity: [0, 1],
+            translateY: [16, 0],
+            scale: [0.97, 1],
+            duration: 500,
+            ease: "outExpo",
+          });
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Hover effect
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const enter = () => {
+      animate(el, { scale: [1, 1.02], translateY: [0, -2], duration: 250, ease: "outQuad" });
+    };
+    const leave = () => {
+      animate(el, { scale: [1.02, 1], translateY: [-2, 0], duration: 250, ease: "outQuad" });
+    };
+    el.addEventListener("mouseenter", enter);
+    el.addEventListener("mouseleave", leave);
+    return () => { el.removeEventListener("mouseenter", enter); el.removeEventListener("mouseleave", leave); };
+  }, []);
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="sigma-card p-4 group"
-    >
+    <div ref={cardRef} className="sigma-card p-4 group opacity-0">
       <div className="flex items-start justify-between gap-3">
-        <Link
-          href={`/window/${w.marketId}`}
-          className="flex-1 min-w-0"
-        >
+        <Link href={`/window/${w.marketId}`} className="flex-1 min-w-0">
           <h3 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
             {w.question}
           </h3>
@@ -101,6 +134,6 @@ export function MarketCard({ window: w, isWatched, onToggleWatch }: MarketCardPr
           <TooltipContent>Kelly fraction = optimal bet size as % of bankroll</TooltipContent>
         </Tooltip>
       )}
-    </motion.div>
+    </div>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, TrendingUp, Target, Activity, Shield, Zap, RefreshCw, Eye } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { animate, stagger, spring } from "animejs";
+import { Trophy, Activity, RefreshCw, Eye } from "lucide-react";
 import { SigmaNav } from "@/components/sigma/sigma-nav";
 import { StatsCards } from "@/components/sigma/stats-cards";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -94,6 +94,9 @@ export default function TrackRecordPage() {
   const [record, setRecord] = useState<TrackRecord>({ trades: [], summary: { totalTrades: 0, wins: 0, losses: 0, skips: 0 } });
   const [loading, setLoading] = useState(true);
   const [selectedTrade, setSelectedTrade] = useState<TradeRecord | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const winBarRef = useRef<HTMLDivElement>(null);
+  const rowsRef = useRef<HTMLTableSectionElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -120,13 +123,56 @@ export default function TrackRecordPage() {
   const wins = settled.filter((t) => t.won === true).length;
   const losses = settled.filter((t) => t.won === false).length;
 
+  // Animate header
+  useEffect(() => {
+    if (headerRef.current) {
+      animate(headerRef.current, {
+        opacity: [0, 1],
+        translateY: [12, 0],
+        duration: 500,
+        ease: "outExpo",
+      });
+    }
+  }, []);
+
+  // Animate win/loss bar
+  useEffect(() => {
+    if (!winBarRef.current || settled.length === 0) return;
+    const bars = winBarRef.current.querySelectorAll("[data-winbar]");
+    const winPct = `${(wins / settled.length) * 100}%`;
+    const lossPct = `${(losses / settled.length) * 100}%`;
+    const percentages = [winPct, lossPct];
+    bars.forEach((bar, i) => {
+      animate(bar, {
+        width: percentages[i] ?? "0%",
+        duration: 800,
+        delay: i * 200,
+        ease: "outExpo",
+      });
+    });
+  }, [settled.length, wins, losses]);
+
+  // Animate trade rows
+  useEffect(() => {
+    if (!rowsRef.current) return;
+    const rows = rowsRef.current.querySelectorAll("tr");
+    if (rows.length === 0) return;
+    animate(rows, {
+      opacity: [0, 1],
+      translateX: [-12, 0],
+      duration: 350,
+      delay: stagger(30),
+      ease: "outExpo",
+    });
+  }, [record.trades.length]);
+
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#070709" }}>
       <SigmaNav />
 
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto px-6 py-6" style={{ maxWidth: "1200px" }}>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div ref={headerRef} style={{ opacity: 0 }}>
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -154,35 +200,20 @@ export default function TrackRecordPage() {
 
                 {/* Win/Loss visual */}
                 {settled.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="sigma-card p-4 mb-6"
-                  >
+                  <div ref={winBarRef} className="sigma-card p-4 mb-6">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-muted-foreground">Win/Loss Distribution</span>
                       <span className="text-xs font-mono text-muted-foreground">{wins}W / {losses}L</span>
                     </div>
                     <div className="flex gap-1 h-3 rounded-full overflow-hidden bg-secondary/50">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(wins / settled.length) * 100}%` }}
-                        transition={{ duration: 0.8, ease: "easeOut" }}
-                        className="bg-positive rounded-l-full"
-                      />
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(losses / settled.length) * 100}%` }}
-                        transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                        className="bg-negative rounded-r-full"
-                      />
+                      <div data-winbar className="bg-positive rounded-l-full" style={{ width: 0 }} />
+                      <div data-winbar className="bg-negative rounded-r-full" style={{ width: 0 }} />
                     </div>
                     <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
                       <span className="text-positive">{((wins / settled.length) * 100).toFixed(1)}% Win</span>
                       <span className="text-negative">{((losses / settled.length) * 100).toFixed(1)}% Loss</span>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* Trade log */}
@@ -195,12 +226,7 @@ export default function TrackRecordPage() {
                   </div>
                   {record.trades.length === 0 ? (
                     <div className="py-12 text-center">
-                      <motion.div
-                        animate={{ y: [0, -4, 0] }}
-                        transition={{ repeat: Infinity, duration: 2 }}
-                      >
-                        <Activity className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                      </motion.div>
+                      <Activity className="w-8 h-8 text-muted-foreground mx-auto mb-2 animate-bounce" />
                       <p className="text-sm text-muted-foreground">
                         No trades logged yet. Run the ec-sigma bot to start recording.
                       </p>
@@ -219,65 +245,60 @@ export default function TrackRecordPage() {
                           <th className="text-center px-4 py-2 font-medium text-muted-foreground"></th>
                         </tr>
                       </thead>
-                      <tbody>
-                        <AnimatePresence>
-                          {record.trades.slice().reverse().map((trade, i) => (
-                            <motion.tr
-                              key={`${trade.marketId}-${trade.timestamp}`}
-                              initial={{ opacity: 0, x: -12 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: i * 0.03 }}
-                              className="border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer"
-                              onClick={() => setSelectedTrade(trade)}
-                            >
-                              <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs">
-                                {new Date(trade.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                              </td>
-                              <td className="px-4 py-2.5 text-foreground font-mono text-xs">
-                                {shortId(trade.marketId)}
-                              </td>
-                              <td className="px-4 py-2.5 text-center">
-                                <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
-                                  trade.side === "buyYes"
-                                    ? "bg-positive/10 text-positive"
-                                    : "bg-negative/10 text-negative"
-                                }`}>
-                                  {trade.side === "buyYes" ? "BUY YES" : "BUY NO"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">
-                                {(trade.fairProbBps / 100).toFixed(1)}%
-                              </td>
-                              <td className={`px-4 py-2.5 text-right font-mono ${trade.edgeBps > 0 ? "text-positive" : "text-negative"}`}>
-                                {trade.edgeBps > 0 ? "+" : ""}{(trade.edgeBps / 100).toFixed(1)}%
-                              </td>
-                              <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">
-                                {(trade.kelly * 100).toFixed(1)}%
-                              </td>
-                              <td className="px-4 py-2.5 text-center">
-                                {trade.settled ? (
-                                  trade.won ? (
-                                    <span className="text-xs text-positive font-medium">WIN</span>
-                                  ) : (
-                                    <span className="text-xs text-negative font-medium">LOSS</span>
-                                  )
+                      <tbody ref={rowsRef}>
+                        {record.trades.slice().reverse().map((trade) => (
+                          <tr
+                            key={`${trade.marketId}-${trade.timestamp}`}
+                            className="border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer"
+                            onClick={() => setSelectedTrade(trade)}
+                          >
+                            <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs">
+                              {new Date(trade.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </td>
+                            <td className="px-4 py-2.5 text-foreground font-mono text-xs">
+                              {shortId(trade.marketId)}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                                trade.side === "buyYes"
+                                  ? "bg-positive/10 text-positive"
+                                  : "bg-negative/10 text-negative"
+                              }`}>
+                                {trade.side === "buyYes" ? "BUY YES" : "BUY NO"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">
+                              {(trade.fairProbBps / 100).toFixed(1)}%
+                            </td>
+                            <td className={`px-4 py-2.5 text-right font-mono ${trade.edgeBps > 0 ? "text-positive" : "text-negative"}`}>
+                              {trade.edgeBps > 0 ? "+" : ""}{(trade.edgeBps / 100).toFixed(1)}%
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">
+                              {(trade.kelly * 100).toFixed(1)}%
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              {trade.settled ? (
+                                trade.won ? (
+                                  <span className="text-xs text-positive font-medium">WIN</span>
                                 ) : (
-                                  <span className="text-xs text-muted-foreground">PENDING</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2.5 text-center">
-                                <Eye className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground transition-colors" />
-                              </td>
-                            </motion.tr>
-                          ))}
-                        </AnimatePresence>
+                                  <span className="text-xs text-negative font-medium">LOSS</span>
+                                )
+                              ) : (
+                                <span className="text-xs text-muted-foreground">PENDING</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              <Eye className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   )}
                 </div>
               </>
             )}
-          </motion.div>
+          </div>
         </div>
       </main>
 

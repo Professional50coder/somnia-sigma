@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useEffect } from "react";
+import { animate, stagger } from "animejs";
 import type { Category } from "@/lib/types";
 
 interface CategoryFilterProps {
@@ -9,8 +11,35 @@ interface CategoryFilterProps {
 }
 
 export function CategoryFilter({ categories, active, onSelect }: CategoryFilterProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const played = useRef(false);
+
+  useEffect(() => {
+    if (!ref.current || played.current) return;
+    const el = ref.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !played.current) {
+          played.current = true;
+          const buttons = el.querySelectorAll("button");
+          animate(buttons, {
+            opacity: [0, 1],
+            scale: [0.9, 1],
+            duration: 300,
+            delay: stagger(30),
+            ease: "outExpo",
+          });
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex items-center gap-1 flex-wrap" ref={ref}>
       <button
         onClick={() => onSelect("all")}
         className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${

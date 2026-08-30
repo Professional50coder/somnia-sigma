@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRef, useEffect } from "react";
+import { animate } from "animejs";
 import { SigmaLogo } from "@/components/icons/premonition-logo";
 import { Activity, BarChart3, Trophy, Zap } from "lucide-react";
 import { WalletConnect } from "@/components/sigma/wallet-connect";
@@ -16,15 +18,31 @@ const navItems = [
 
 export function SigmaNav() {
   const pathname = usePathname();
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!navRef.current) return;
+    const links = navRef.current.querySelectorAll("nav a");
+    links.forEach((link) => {
+      const enter = () => {
+        animate(link, { scale: [1, 1.05], translateY: [0, -1], duration: 200, ease: "outQuad" });
+      };
+      const leave = () => {
+        animate(link, { scale: [1.05, 1], translateY: [-1, 0], duration: 200, ease: "outQuad" });
+      };
+      link.addEventListener("mouseenter", enter);
+      link.addEventListener("mouseleave", leave);
+    });
+  }, []);
 
   return (
-    <header className="shrink-0 z-50" style={{ backgroundColor: "#070709", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+    <header ref={navRef} className="shrink-0 z-50" style={{ backgroundColor: "#070709", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
       <div className="px-6 py-3">
         <div className="flex items-center justify-between gap-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+          <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
             <SigmaLogo size={32} />
-            <span className="text-lg font-semibold text-foreground tracking-tight">
+            <span className="text-lg font-semibold text-foreground tracking-tight group-hover:text-primary transition-colors">
               Sigma
             </span>
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground bg-secondary px-1.5 py-0.5 rounded hidden sm:inline">

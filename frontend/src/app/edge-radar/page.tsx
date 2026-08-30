@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Filter, RefreshCw, Wifi, WifiOff, TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
+import { animate, stagger } from "animejs";
+import { Activity, Filter, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { SigmaNav } from "@/components/sigma/sigma-nav";
 import { MarketCard } from "@/components/sigma/market-card";
 import { CategoryFilter } from "@/components/sigma/category-filter";
@@ -11,18 +11,25 @@ import { useWatchlist } from "@/hooks/use-watchlist";
 import { useSigmaData } from "@/hooks/use-sigma-data";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { staggerContainer, staggerItem, hoverLift, tapShrink } from "@/lib/motion";
 import type { PerformanceStats } from "@/lib/types";
 
 function AnimatedNumber({ value, prefix = "", suffix = "", decimals = 2 }: { value: number; prefix?: string; suffix?: string; decimals?: number }) {
   const [display, setDisplay] = useState(value);
   const [flash, setFlash] = useState<"up" | "down" | null>(null);
   const prev = useRef(value);
+  const elRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (value !== prev.current) {
       setFlash(value > prev.current ? "up" : "down");
       prev.current = value;
+      if (elRef.current) {
+        animate(elRef.current, {
+          scale: [1, 1.15, 1],
+          duration: 300,
+          ease: "outQuad",
+        });
+      }
       const t = setTimeout(() => setFlash(null), 600);
       return () => clearTimeout(t);
     }
@@ -35,21 +42,21 @@ function AnimatedNumber({ value, prefix = "", suffix = "", decimals = 2 }: { val
     let frame: number;
     const startTime = performance.now();
     const duration = 400;
-    const animate = (now: number) => {
+    const tick = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       setDisplay(start + diff * eased);
-      if (progress < 1) frame = requestAnimationFrame(animate);
+      if (progress < 1) frame = requestAnimationFrame(tick);
     };
-    frame = requestAnimationFrame(animate);
+    frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [value]);
 
   const color = flash === "up" ? "text-positive" : flash === "down" ? "text-negative" : "text-foreground";
 
   return (
-    <span className={`font-mono transition-colors duration-300 ${color}`}>
+    <span ref={elRef} className={`font-mono transition-colors duration-300 ${color}`}>
       {prefix}{display.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}
     </span>
   );
@@ -80,6 +87,7 @@ export default function EdgeRadarPage() {
   const { watchlist, toggle } = useWatchlist();
   const { windows, vol, lastUpdated, loading, error, refresh } = useSigmaData(15000);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -116,6 +124,21 @@ export default function EdgeRadarPage() {
     return result;
   }, [windows, category, intervalFilter, showWatchedOnly, watchlist]);
 
+  // Animate grid cards when filteredWindows change
+  useEffect(() => {
+    if (!gridRef.current) return;
+    const cards = gridRef.current.querySelectorAll("[data-card]");
+    if (cards.length === 0) return;
+    animate(cards, {
+      opacity: [0, 1],
+      translateY: [16, 0],
+      scale: [0.95, 1],
+      duration: 400,
+      delay: stagger(50, { from: "first" }),
+      ease: "outExpo",
+    });
+  }, [filteredWindows.length]);
+
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#070709" }}>
       <SigmaNav />
@@ -123,90 +146,63 @@ export default function EdgeRadarPage() {
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto px-6 py-6" style={{ maxWidth: "1400px" }}>
           {/* Vol state banner */}
-          <AnimatePresence>
-            {vol && (
-              <motion.div
-                variants={staggerItem}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="mb-4 sigma-card p-3 flex items-center justify-between group hover:border-primary/30 transition-all duration-300"
-              >
-                <div className="flex items-center gap-5 text-xs font-mono text-muted-foreground">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex items-center gap-1.5 cursor-help">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                        σ: <AnimatedNumber value={vol.sigma} decimals={4} />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Realized volatility (EWMA) — higher σ = wider price swings</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help">
-                        samples: <AnimatedNumber value={vol.sampleCount} decimals={0} />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Number of MarkPriceUpdated events accumulated on-chain</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex items-center gap-1 cursor-help">
-                        spot: <AnimatedNumber value={vol.lastPrice} prefix="$" decimals={2} />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Current BTC/USDC mark price from dreamDEX spot pool</TooltipContent>
-                  </Tooltip>
-                  <motion.span
-                    key={vol.ok ? "ready" : "not-ready"}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                      vol.ok
-                        ? "bg-positive/10 text-positive"
-                        : "bg-negative/10 text-negative"
-                    }`}
-                  >
-                    {vol.ok ? "VOL OK" : "VOL NOT READY"}
-                  </motion.span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {error ? (
-                    <WifiOff className="w-3.5 h-3.5 text-negative" />
-                  ) : (
-                    <div className="relative">
-                      <Wifi className="w-3.5 h-3.5 text-positive" />
-                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-positive rounded-full animate-ping" />
-                    </div>
-                  )}
-                  {lastUpdated && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {lastUpdated.toLocaleTimeString()}
+          {vol && (
+            <div className="mb-4 sigma-card p-3 flex items-center justify-between group hover:border-primary/30 transition-all duration-300">
+              <div className="flex items-center gap-5 text-xs font-mono text-muted-foreground">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1.5 cursor-help">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      σ: <AnimatedNumber value={vol.sigma} decimals={4} />
                     </span>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  </TooltipTrigger>
+                  <TooltipContent>Realized volatility (EWMA) — higher σ = wider price swings</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help">
+                      samples: <AnimatedNumber value={vol.sampleCount} decimals={0} />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Number of MarkPriceUpdated events accumulated on-chain</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1 cursor-help">
+                      spot: <AnimatedNumber value={vol.lastPrice} prefix="$" decimals={2} />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Current BTC/USDC mark price from dreamDEX spot pool</TooltipContent>
+                </Tooltip>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${vol.ok ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"}`}>
+                  {vol.ok ? "VOL OK" : "VOL NOT READY"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {error ? (
+                  <WifiOff className="w-3.5 h-3.5 text-negative" />
+                ) : (
+                  <div className="relative">
+                    <Wifi className="w-3.5 h-3.5 text-positive" />
+                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-positive rounded-full animate-ping" />
+                  </div>
+                )}
+                {lastUpdated && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {lastUpdated.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Stats */}
-          <motion.div
-            variants={staggerItem}
-            initial="hidden"
-            animate="visible"
-            className="mb-6"
-          >
+          <div className="mb-6">
             <StatsCards stats={stats} />
-          </motion.div>
+          </div>
 
           {/* Filters */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="flex items-center justify-between gap-4 mb-4"
-          >
+          <div className="flex items-center justify-between gap-4 mb-4">
             <CategoryFilter
               categories={categories}
               active={category}
@@ -244,56 +240,31 @@ export default function EdgeRadarPage() {
                 Refresh
               </button>
             </div>
-          </motion.div>
+          </div>
 
           {/* Edge Radar Grid */}
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-          >
-            <AnimatePresence mode="popLayout">
-              {filteredWindows.map((w, i) => (
-                <motion.div
-                  key={w.marketId}
-                  variants={staggerItem}
-                  whileHover={hoverLift}
-                  whileTap={tapShrink}
-                  layout
-                >
-                  <MarketCard
-                    window={w}
-                    isWatched={watchlist.has(w.marketId)}
-                    onToggleWatch={toggle}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredWindows.map((w) => (
+              <div key={w.marketId} data-card>
+                <MarketCard
+                  window={w}
+                  isWatched={watchlist.has(w.marketId)}
+                  onToggleWatch={toggle}
+                />
+              </div>
+            ))}
+          </div>
 
-          <AnimatePresence>
-            {filteredWindows.length === 0 && !loading && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-center py-12"
-              >
-                <motion.div
-                  animate={{ y: [0, -4, 0] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                >
-                  <Activity className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                </motion.div>
-                <p className="text-sm text-muted-foreground">
-                  {windows.length === 0
-                    ? "No open windows found on-chain. Markets may not be published to SigmaWindowRegistry yet."
-                    : "No windows match your filters"}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {filteredWindows.length === 0 && !loading && (
+            <div className="text-center py-12">
+              <Activity className="w-8 h-8 text-muted-foreground mx-auto mb-3 animate-bounce" />
+              <p className="text-sm text-muted-foreground">
+                {windows.length === 0
+                  ? "No open windows found on-chain. Markets may not be published to SigmaWindowRegistry yet."
+                  : "No windows match your filters"}
+              </p>
+            </div>
+          )}
 
           {loading && windows.length === 0 && (
             <div className="text-center py-12">
@@ -303,11 +274,10 @@ export default function EdgeRadarPage() {
               </div>
               <div className="flex justify-center gap-1 mt-4">
                 {[0, 1, 2].map((i) => (
-                  <motion.div
+                  <div
                     key={i}
-                    className="w-2 h-2 rounded-full bg-primary/40"
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.4, 1, 0.4] }}
-                    transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }}
+                    className="w-2 h-2 rounded-full bg-primary/40 animate-bounce"
+                    style={{ animationDelay: `${i * 0.15}s` }}
                   />
                 ))}
               </div>

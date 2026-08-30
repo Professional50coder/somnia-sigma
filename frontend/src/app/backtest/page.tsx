@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { BarChart3, AlertTriangle, TrendingUp, Target, Activity, Info } from "lucide-react";
+import { animate, stagger } from "animejs";
+import { BarChart3, TrendingUp, Target, Activity, Info, AlertTriangle } from "lucide-react";
 import { SigmaNav } from "@/components/sigma/sigma-nav";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
@@ -45,29 +45,25 @@ interface BacktestResults {
 }
 
 function AnimatedBar({ predicted, realised, delay }: { predicted: number; realised: number; delay: number }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), delay);
-    return () => clearTimeout(t);
-  }, [delay]);
+  const barRef = useRef<HTMLDivElement>(null);
+  const predRef = useRef<HTMLDivElement>(null);
 
-  const barWidth = Math.max(2, realised * 100);
-  const predWidth = Math.max(2, predicted * 100);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (barRef.current) {
+        animate(barRef.current, { width: `${Math.max(2, realised * 100)}%`, duration: 600, ease: "outExpo" });
+      }
+      if (predRef.current) {
+        animate(predRef.current, { width: `${Math.max(2, predicted * 100)}%`, duration: 600, ease: "outExpo" });
+      }
+    }, delay);
+    return () => clearTimeout(t);
+  }, [delay, predicted, realised]);
 
   return (
     <div className="flex-1 relative h-5 bg-secondary/50 rounded overflow-hidden group cursor-pointer">
-      <motion.div
-        initial={{ width: 0 }}
-        animate={{ width: `${barWidth}%` }}
-        transition={{ duration: 0.6, delay: delay / 1000, ease: "easeOut" }}
-        className="absolute left-0 top-0 h-full bg-primary/60 rounded"
-      />
-      <motion.div
-        initial={{ width: 0 }}
-        animate={{ width: `${predWidth}%` }}
-        transition={{ duration: 0.6, delay: delay / 1000 + 0.1, ease: "easeOut" }}
-        className="absolute left-0 top-0 h-full border-r-2 border-accent"
-      />
+      <div ref={barRef} className="absolute left-0 top-0 h-full bg-primary/60 rounded" style={{ width: 0 }} />
+      <div ref={predRef} className="absolute left-0 top-0 h-full border-r-2 border-accent" style={{ width: 0 }} />
       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-[10px] font-mono text-foreground">
         Predicted {(predicted * 100).toFixed(1)}% → Realised {(realised * 100).toFixed(1)}%
       </div>
@@ -78,12 +74,7 @@ function AnimatedBar({ predicted, realised, delay }: { predicted: number; realis
 function CalibrationCard({ b, delay }: { b: CalibrationBucket; delay: number }) {
   const gap = b.meanPredicted - b.realisedFreq;
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: delay / 1000 }}
-      className="flex items-center gap-3 text-xs font-mono"
-    >
+    <div className="calibration-row flex items-center gap-3 text-xs font-mono">
       <span className="w-6 text-right text-muted-foreground">{b.bucket}</span>
       <AnimatedBar predicted={b.meanPredicted} realised={b.realisedFreq} delay={delay} />
       <span className="w-16 text-right text-muted-foreground">
@@ -98,7 +89,7 @@ function CalibrationCard({ b, delay }: { b: CalibrationBucket; delay: number }) 
       <span className="w-12 text-right text-muted-foreground">
         n={b.n}
       </span>
-    </motion.div>
+    </div>
   );
 }
 
@@ -128,6 +119,8 @@ function SkeletonBacktest() {
 export default function BacktestPage() {
   const [results, setResults] = useState<BacktestResults | null>(null);
   const [loading, setLoading] = useState(true);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const cardsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -146,13 +139,39 @@ export default function BacktestPage() {
     load();
   }, []);
 
+  // Animate header on mount
+  useEffect(() => {
+    if (headerRef.current) {
+      animate(headerRef.current, {
+        opacity: [0, 1],
+        translateY: [12, 0],
+        duration: 500,
+        ease: "outExpo",
+      });
+    }
+  }, []);
+
+  // Animate summary cards when results load
+  useEffect(() => {
+    if (!results || !cardsRef.current) return;
+    const cards = cardsRef.current.querySelectorAll("[data-card]");
+    animate(cards, {
+      opacity: [0, 1],
+      translateY: [20, 0],
+      scale: [0.92, 1],
+      duration: 500,
+      delay: stagger(60),
+      ease: "outExpo",
+    });
+  }, [results]);
+
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#070709" }}>
       <SigmaNav />
 
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto px-6 py-6" style={{ maxWidth: "1200px" }}>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div ref={headerRef} style={{ opacity: 0 }}>
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -191,21 +210,14 @@ export default function BacktestPage() {
                 </TabsList>
 
                 {/* Summary cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div ref={cardsRef} className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     { label: "Brier Score", value: results.brier.toFixed(4), good: results.brier < 0.25 },
                     { label: "Log Loss", value: results.logloss.toFixed(4), good: results.logloss < 0.7 },
                     { label: "Checkpoints", value: results.totalCheckpoints.toLocaleString(), good: true },
                     { label: "BTC Bars", value: results.totalBars.toLocaleString(), good: true },
-                  ].map((card, i) => (
-                    <motion.div
-                      key={card.label}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.08 }}
-                      className="sigma-card p-3"
-                    >
+                  ].map((card) => (
+                    <div key={card.label} data-card className="sigma-card p-3 opacity-0">
                       <div className="sigma-label mb-1">{card.label}</div>
                       <div className={`font-mono text-lg font-semibold ${card.good ? "text-foreground" : "text-yellow-500"}`}>
                         {card.value}
@@ -216,7 +228,7 @@ export default function BacktestPage() {
                       {card.label === "Log Loss" && (
                         <Progress value={Math.max(0, (1 - results.logloss) * 100)} className="mt-2 h-1" />
                       )}
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
 
@@ -275,12 +287,10 @@ export default function BacktestPage() {
                       </thead>
                       <tbody>
                         {results.tauBuckets.map((b, i) => (
-                          <motion.tr
+                          <tr
                             key={b.label}
-                            initial={{ opacity: 0, x: -8 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
+                            className="tau-row border-b border-border/50 hover:bg-secondary/30 transition-colors"
+                            style={{ animationDelay: `${i * 50}ms` }}
                           >
                             <td className="px-4 py-2.5 text-foreground">{b.label}</td>
                             <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.n}</td>
@@ -290,7 +300,7 @@ export default function BacktestPage() {
                             <td className="px-4 py-2.5 text-right">
                               <Progress value={Math.max(0, (1 - b.brier) * 100)} className="h-1.5 w-16 ml-auto" />
                             </td>
-                          </motion.tr>
+                          </tr>
                         ))}
                       </tbody>
                     </table>
@@ -315,19 +325,17 @@ export default function BacktestPage() {
                       </thead>
                       <tbody>
                         {results.byCadence.map((b, i) => (
-                          <motion.tr
+                          <tr
                             key={b.cadence}
-                            initial={{ opacity: 0, x: -8 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
+                            className="cadence-row border-b border-border/50 hover:bg-secondary/30 transition-colors"
+                            style={{ animationDelay: `${i * 50}ms` }}
                           >
                             <td className="px-4 py-2.5 text-foreground font-medium">{b.cadence}</td>
                             <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.n}</td>
                             <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.meanPredicted * 100).toFixed(1)}%</td>
                             <td className="px-4 py-2.5 text-right font-mono text-foreground">{(b.realisedFreq * 100).toFixed(1)}%</td>
                             <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{b.brier.toFixed(4)}</td>
-                          </motion.tr>
+                          </tr>
                         ))}
                       </tbody>
                     </table>
@@ -356,7 +364,7 @@ export default function BacktestPage() {
                 </Accordion>
               </Tabs>
             )}
-          </motion.div>
+          </div>
         </div>
       </main>
     </div>

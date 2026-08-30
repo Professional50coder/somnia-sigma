@@ -1,5 +1,8 @@
 "use client";
 
+import { useRef, useEffect } from "react";
+import { animate } from "animejs";
+
 interface ProbabilityBarProps {
   probability: number;
   label?: string;
@@ -13,11 +16,37 @@ export function ProbabilityBar({
   showValue = true,
   size = "md",
 }: ProbabilityBarProps) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const played = useRef(false);
   const height = size === "sm" ? "h-1.5" : size === "md" ? "h-2.5" : "h-4";
   const pct = Math.min(100, Math.max(0, probability * 100));
 
+  useEffect(() => {
+    if (!barRef.current || played.current) return;
+    const el = barRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !played.current) {
+          played.current = true;
+          const inner = el.querySelector("[data-fill]");
+          if (inner) {
+            animate(inner, {
+              width: `${pct}%`,
+              duration: 1000,
+              ease: "outExpo",
+            });
+          }
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pct]);
+
   return (
-    <div className="w-full">
+    <div className="w-full" ref={barRef}>
       {(label || showValue) && (
         <div className="flex items-center justify-between mb-1">
           {label && <span className="sigma-label">{label}</span>}
@@ -30,8 +59,9 @@ export function ProbabilityBar({
       )}
       <div className={`w-full ${height} rounded-full bg-secondary overflow-hidden`}>
         <div
-          className="h-full rounded-full bg-primary transition-all duration-500"
-          style={{ width: `${pct}%` }}
+          data-fill
+          className="h-full rounded-full bg-primary"
+          style={{ width: 0 }}
         />
       </div>
     </div>

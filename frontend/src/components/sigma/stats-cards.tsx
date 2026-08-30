@@ -1,9 +1,9 @@
 "use client";
 
+import { useRef, useEffect } from "react";
+import { animate, stagger, spring } from "animejs";
 import { TrendingUp, Target, BarChart3, Activity, Zap, Shield } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { motion } from "framer-motion";
-import { staggerContainer, staggerItem } from "@/lib/motion";
 import type { PerformanceStats } from "@/lib/types";
 
 interface StatsCardsProps {
@@ -20,57 +20,66 @@ const tooltips: Record<string, string> = {
 };
 
 export function StatsCards({ stats }: StatsCardsProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const played = useRef(false);
+
   const cards = [
-    {
-      label: "Total Trades",
-      value: stats.totalTrades.toString(),
-      icon: BarChart3,
-      color: "text-primary",
-    },
-    {
-      label: "Win Rate",
-      value: `${(stats.winRate * 100).toFixed(1)}%`,
-      icon: Target,
-      color: stats.winRate > 0.5 ? "text-positive" : "text-negative",
-    },
-    {
-      label: "Total PnL",
-      value: `$${stats.totalPnl.toFixed(0)}`,
-      icon: TrendingUp,
-      color: stats.totalPnl >= 0 ? "text-positive" : "text-negative",
-    },
-    {
-      label: "Sharpe Ratio",
-      value: stats.sharpeRatio.toFixed(2),
-      icon: Activity,
-      color: stats.sharpeRatio > 1 ? "text-positive" : "text-muted-foreground",
-    },
-    {
-      label: "Max Drawdown",
-      value: `${(stats.maxDrawdown * 100).toFixed(1)}%`,
-      icon: Shield,
-      color: "text-negative",
-    },
-    {
-      label: "Avg Edge",
-      value: `${(stats.avgEdge * 100).toFixed(1)}%`,
-      icon: Zap,
-      color: stats.avgEdge > 0 ? "text-accent" : "text-muted-foreground",
-    },
+    { label: "Total Trades", value: stats.totalTrades.toString(), icon: BarChart3, color: "text-primary" },
+    { label: "Win Rate", value: `${(stats.winRate * 100).toFixed(1)}%`, icon: Target, color: stats.winRate > 0.5 ? "text-positive" : "text-negative" },
+    { label: "Total PnL", value: `$${stats.totalPnl.toFixed(0)}`, icon: TrendingUp, color: stats.totalPnl >= 0 ? "text-positive" : "text-negative" },
+    { label: "Sharpe Ratio", value: stats.sharpeRatio.toFixed(2), icon: Activity, color: stats.sharpeRatio > 1 ? "text-positive" : "text-muted-foreground" },
+    { label: "Max Drawdown", value: `${(stats.maxDrawdown * 100).toFixed(1)}%`, icon: Shield, color: "text-negative" },
+    { label: "Avg Edge", value: `${(stats.avgEdge * 100).toFixed(1)}%`, icon: Zap, color: stats.avgEdge > 0 ? "text-accent" : "text-muted-foreground" },
   ];
 
+  useEffect(() => {
+    if (!containerRef.current || played.current) return;
+    const el = containerRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !played.current) {
+          played.current = true;
+          const items = el.querySelectorAll("[data-stat]");
+          animate(items, {
+            opacity: [0, 1],
+            translateY: [20, 0],
+            scale: [0.92, 1],
+            duration: 600,
+            delay: stagger(60),
+            ease: spring({ stiffness: 300, damping: 22 }),
+          });
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Hover animations
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const items = containerRef.current.querySelectorAll("[data-stat]");
+    items.forEach((item) => {
+      const enter = () => {
+        animate(item, { scale: [1, 1.04], translateY: [0, -2], duration: 200, ease: "outQuad" });
+      };
+      const leave = () => {
+        animate(item, { scale: [1.04, 1], translateY: [-2, 0], duration: 200, ease: "outQuad" });
+      };
+      item.addEventListener("mouseenter", enter);
+      item.addEventListener("mouseleave", leave);
+    });
+  }, []);
+
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"
-    >
+    <div ref={containerRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {cards.map((card) => (
-        <motion.div key={card.label} variants={staggerItem} whileHover={{ scale: 1.02, y: -2 }}>
+        <div key={card.label} data-stat className="opacity-0 cursor-default">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="sigma-card p-3 cursor-help">
+              <div className="sigma-card p-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <card.icon className={`w-3.5 h-3.5 ${card.color}`} />
                   <span className="sigma-label">{card.label}</span>
@@ -82,8 +91,8 @@ export function StatsCards({ stats }: StatsCardsProps) {
             </TooltipTrigger>
             <TooltipContent>{tooltips[card.label]}</TooltipContent>
           </Tooltip>
-        </motion.div>
+        </div>
       ))}
-    </motion.div>
+    </div>
   );
 }
