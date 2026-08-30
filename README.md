@@ -8,7 +8,7 @@
 
 Hitansh Gopani · August 2026
 
-[Edge Radar (live)](https://somnia-sigma-git-main-hitanshs-projects.vercel.app) · [Architecture](docs/ARCHITECTURE.md) · [Deployment Ledger](docs/DEPLOYMENT-LEDGER.md) · [Research Base](docs/RESEARCH.md)
+[Edge Radar (live)]([https://somnia-sigma-git-main-hitanshs-projects.vercel.app](https://frontend-jade-beta-md6533cyvr.vercel.app/)) · [Architecture](docs/ARCHITECTURE.md) · [Deployment Ledger](docs/DEPLOYMENT-LEDGER.md) · [Research Base](docs/RESEARCH.md)
 
 Contract addresses on Somnia Shannon testnet (chain 50312) — see [§ 06](#section-06--deployed-contracts).
 
