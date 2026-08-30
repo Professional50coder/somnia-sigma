@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { SigmaHero3D } from "@/components/sigma/sigma-hero-3d";
 import { animate, stagger, spring } from "animejs";
 import {
   Activity, TrendingUp, Zap, Shield, BarChart3, Target, ChevronRight,
@@ -565,9 +565,6 @@ function FlowDiagram() {
 /* ═══════════════════════════════════════════════════════════ */
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll();
-  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0]);
 
   // Hero text scramble
   const taglineRef = useRef<HTMLSpanElement>(null);
@@ -638,17 +635,29 @@ export default function LandingPage() {
       </header>
 
       {/* ═══ HERO ═══ */}
-      <motion.section ref={heroRef} style={{ y: heroY, opacity: heroOpacity }} className="relative pt-32 pb-16 px-6 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        <motion.div className="absolute top-20 left-1/4 w-96 h-96 rounded-full opacity-20 blur-[120px]" style={{ background: "radial-gradient(circle, #54BBF7 0%, transparent 70%)" }} animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 8, repeat: Infinity }} />
-        <motion.div className="absolute top-40 right-1/4 w-80 h-80 rounded-full opacity-15 blur-[100px]" style={{ background: "radial-gradient(circle, #4DBE95 0%, transparent 70%)" }} animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 10, repeat: Infinity }} />
+      <section ref={heroRef} className="relative pt-32 pb-16 px-6 overflow-hidden">
+        {/* 3D Background */}
+        <div className="absolute inset-0">
+          <SigmaHero3D />
+        </div>
 
-        <div className="mx-auto relative" style={{ maxWidth: "1000px" }}>
-          <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}>
+        {/* Gradient overlays for readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/80 pointer-events-none" style={{ zIndex: 1 }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/30 via-transparent to-background/30 pointer-events-none" style={{ zIndex: 1 }} />
+
+        <div className="mx-auto relative" style={{ maxWidth: "1000px", zIndex: 2 }}>
+          <div className="opacity-0 translate-y-10" ref={(el) => {
+            if (el && !el.dataset.animated) {
+              el.dataset.animated = "true";
+              import("animejs").then(({ animate }) => {
+                animate(el, { opacity: [0, 1], translateY: [40, 0], duration: 1200, ease: "outExpo" });
+              });
+            }
+          }}>
             <div className="flex items-center gap-2 mb-6">
-              <motion.span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20" animate={{ boxShadow: ["0 0 0 0 rgba(84,187,247,0)", "0 0 12px 2px rgba(84,187,247,0.3)", "0 0 0 0 rgba(84,187,247,0)"] }} transition={{ duration: 2, repeat: Infinity }}>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 animate-pulse shadow-[0_0_12px_rgba(84,187,247,0.3)]">
                 Live on Shannon
-              </motion.span>
+              </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-accent/10 text-accent border border-accent/20">Chain 50312</span>
             </div>
 
@@ -669,15 +678,15 @@ export default function LandingPage() {
             <div className="flex items-center gap-3">
               <Link href="/edge-radar" className="group flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
                 Open Edge Radar
-                <motion.span className="inline-block" animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}><ArrowRight className="w-4 h-4" /></motion.span>
+                <span className="inline-block animate-bounce"><ArrowRight className="w-4 h-4" /></span>
               </Link>
               <a href="#proofs" className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-secondary/50 transition-colors">
                 Verify on-chain <ExternalLink className="w-4 h-4" />
               </a>
             </div>
-          </motion.div>
+          </div>
         </div>
-      </motion.section>
+      </section>
 
       {/* ═══ KPIs ═══ */}
       <section className="py-12 px-6 border-y border-border" style={{ backgroundColor: "rgba(16,17,22,0.5)" }}>
