@@ -494,13 +494,13 @@ function FlowDiagram() {
   return (
     <div ref={ref} className="w-full">
       {/* Desktop: horizontal flow */}
-      <div className="hidden sm:flex items-center justify-between gap-0">
+      <div className="hidden sm:flex items-center justify-between gap-0 overflow-visible">
         {steps.map((s, i) => (
           <div key={s.label} className="contents">
             {/* Node */}
             <div data-node style={{ opacity: 0 }} className="relative z-10 shrink-0">
               <div
-                className="w-28 h-28 rounded-2xl flex flex-col items-center justify-center border-2 transition-all duration-300 hover:scale-110 hover:shadow-lg cursor-default group"
+                className="w-32 h-32 rounded-2xl flex flex-col items-center justify-center border-2 transition-all duration-300 hover:scale-110 hover:shadow-lg cursor-default group"
                 style={{
                   borderColor: s.color + "50",
                   backgroundColor: s.color + "08",
@@ -510,8 +510,8 @@ function FlowDiagram() {
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-110" style={{ backgroundColor: s.color + "15" }}>
                   <s.icon className="w-5 h-5" style={{ color: s.color }} />
                 </div>
-                <span className="text-xs font-bold text-foreground text-center leading-tight">{s.label}</span>
-                <span className="text-[9px] text-muted-foreground text-center leading-tight mt-0.5 px-2">{s.sub}</span>
+                <span className="text-xs font-bold text-foreground text-center leading-tight px-1">{s.label}</span>
+                <span className="text-[9px] text-muted-foreground text-center leading-tight mt-0.5 px-2 whitespace-nowrap">{s.sub}</span>
               </div>
             </div>
             {/* Arrow + line between nodes (SVG drawable) */}
@@ -809,9 +809,9 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ DATA FLOW ═══ */}
-      <section className="py-16 px-6 relative overflow-hidden" style={{ backgroundColor: "rgba(16,17,22,0.5)" }}>
+      <section className="py-16 px-6 relative" style={{ backgroundColor: "rgba(16,17,22,0.5)" }}>
         <DataFlowParticles />
-        <div className="mx-auto relative" style={{ maxWidth: "1000px" }}>
+        <div className="mx-auto relative" style={{ maxWidth: "1200px" }}>
           <RevealChildren className="mb-10">
             <div data-reveal>
               <span className="text-[11px] uppercase tracking-wider text-accent font-semibold mb-2 block">Data Flow</span>
