@@ -19,7 +19,7 @@ Sigma is an on-chain fair-value and trading intelligence layer for **dreamDEX Ev
 ### Demo
 
 <a href="https://youtu.be/nm2qWuQs7RU">
-<img src="https://img.youtube.com/vi/nm2qWuQs7RU/0.jpg" width="640" alt="Sigma Demo Video">
+<img src="brand/sigma-thumbnail.png" width="640" alt="Sigma — One Line to Beat. It Tells You The Odds.">
 </a>
 
 ▶ [Watch on YouTube](https://youtu.be/nm2qWuQs7RU)
