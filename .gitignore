@@ -36,3 +36,10 @@ frontend/tsconfig.tsbuildinfo
 MISTAKES.md
 FINDINGS.md
 docs/internal/
+
+# ---- video / voice / scripts ----
+sigma-demo-voiceover.mp3
+video-script.txt
+generate-voiceover.py
+check-balance.py
+brand/sigma-thumbnail.png
