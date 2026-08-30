@@ -429,7 +429,7 @@ function DataFlowParticles() {
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
 }
 
-/* ─── Animated flow diagram (using onScroll + stagger from center) ─── */
+/* ─── Data Flow flashcards (using onScroll + stagger from center) ─── */
 function FlowDiagram() {
   const ref = useRef<HTMLDivElement>(null);
   const played = useRef(false);
@@ -439,136 +439,108 @@ function FlowDiagram() {
     const el = ref.current;
     played.current = true;
 
-    const nodes = el.querySelectorAll("[data-node]");
-    const lines = el.querySelectorAll("[data-line]");
-    const arrows = el.querySelectorAll("[data-arrow]");
-
-    // Animate lines first (SVG stroke drawing)
-    animate(lines, {
-      scaleX: [0, 1],
-      duration: 600,
-      delay: stagger(200, { start: 0, from: "center" }),
-      ease: "outExpo",
-      autoplay: onScroll({ target: el, enter: "15%" }),
-    });
-
-    // Animate SVG flow line stroke drawing
-    const flowLines = el.querySelectorAll("[data-flow-line]");
-    animate(flowLines, {
-      strokeDashoffset: [100, 0],
-      duration: 800,
-      delay: stagger(200, { start: 100, from: "center" }),
-      ease: "outExpo",
-      autoplay: onScroll({ target: el, enter: "15%" }),
-    });
-
-    // Then nodes pop in with spring from center
-    animate(nodes, {
+    const cards = el.querySelectorAll("[data-flash]");
+    animate(cards, {
       opacity: [0, 1],
-      scale: [0.5, 1],
-      translateY: [20, 0],
-      duration: 700,
-      delay: stagger(200, { start: 200, from: "center" }),
-      ease: spring({ stiffness: 250, damping: 18 }),
+      scale: [0.9, 1],
+      translateY: [30, 0],
+      duration: 600,
+      delay: stagger(120, { from: "center", jitter: 40 }),
+      ease: spring({ stiffness: 260, damping: 20 }),
       autoplay: onScroll({ target: el, enter: "15%" }),
     });
 
-    // Arrow pulse
+    const arrows = el.querySelectorAll("[data-arrow]");
     animate(arrows, {
       opacity: [0, 1],
       scale: [0, 1],
       duration: 400,
-      delay: stagger(200, { start: 400, from: "center" }),
+      delay: stagger(120, { start: 300, from: "center" }),
       ease: "outExpo",
       autoplay: onScroll({ target: el, enter: "15%" }),
     });
   }, []);
 
   const steps = [
-    { label: "dreamDEX", sub: "MarkPriceUpdated", color: "#D84F68", icon: Activity },
-    { label: "RealizedVol", sub: "EWMA σ on-chain", color: "#54BBF7", icon: Cpu },
-    { label: "SigmaOracle", sub: "Φ(d₂) fair value", color: "#4DBE95", icon: LineChart },
-    { label: "Edge Radar", sub: "Reads fair value", color: "#6166DC", icon: Eye },
+    { num: "01", label: "dreamDEX", sub: "MarkPriceUpdated", color: "#D84F68", icon: Activity },
+    { num: "02", label: "RealizedVol", sub: "EWMA σ on-chain", color: "#54BBF7", icon: Cpu },
+    { num: "03", label: "SigmaOracle", sub: "Φ(d₂) fair value", color: "#4DBE95", icon: LineChart },
+    { num: "04", label: "Edge Radar", sub: "Reads fair value", color: "#6166DC", icon: Eye },
   ];
 
   return (
     <div ref={ref} className="w-full">
-      {/* Desktop: horizontal flow */}
-      <div className="hidden sm:flex items-center justify-between gap-0 overflow-visible">
+      {/* Desktop: 2x2 grid */}
+      <div className="hidden sm:grid grid-cols-2 gap-4 relative">
         {steps.map((s, i) => (
           <div key={s.label} className="contents">
-            {/* Node */}
-            <div data-node style={{ opacity: 0 }} className="relative z-10 shrink-0">
-              <div
-                className="w-32 h-32 rounded-2xl flex flex-col items-center justify-center border-2 transition-all duration-300 hover:scale-110 hover:shadow-lg cursor-default group"
-                style={{
-                  borderColor: s.color + "50",
-                  backgroundColor: s.color + "08",
-                  boxShadow: `0 0 30px ${s.color}10`,
-                }}
-              >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-110" style={{ backgroundColor: s.color + "15" }}>
-                  <s.icon className="w-5 h-5" style={{ color: s.color }} />
-                </div>
-                <span className="text-xs font-bold text-foreground text-center leading-tight px-1">{s.label}</span>
-                <span className="text-[9px] text-muted-foreground text-center leading-tight mt-0.5 px-2 whitespace-nowrap">{s.sub}</span>
+            <div
+              data-flash
+              style={{ opacity: 0, borderLeft: `4px solid ${s.color}` }}
+              className="sigma-card rounded-xl p-5 cursor-default transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 group relative overflow-hidden"
+            >
+              <div className="absolute top-3 right-3 text-[11px] font-mono font-bold rounded-full w-7 h-7 flex items-center justify-center" style={{ color: s.color, backgroundColor: s.color + "15" }}>
+                {s.num}
               </div>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-all duration-300 group-hover:scale-110" style={{ backgroundColor: s.color + "12" }}>
+                <s.icon className="w-6 h-6" style={{ color: s.color }} />
+              </div>
+              <h3 className="text-base font-bold text-foreground mb-1">{s.label}</h3>
+              <p className="text-sm text-muted-foreground">{s.sub}</p>
             </div>
-            {/* Arrow + line between nodes (SVG drawable) */}
-            {i < steps.length - 1 && (
-              <div className="flex-1 flex items-center -mx-1 relative">
-                <svg data-line className="flex-1 h-0.5 relative overflow-hidden" style={{ transformOrigin: "left" }}>
-                  <line x1="0" y1="0" x2="100%" y2="0" stroke={`${steps[i + 1].color}30`} strokeWidth="2" />
-                  <line
-                    data-flow-line
-                    x1="0" y1="0" x2="100%" y2="0"
-                    stroke={`${steps[i + 1].color}80`}
-                    strokeWidth="2"
-                    strokeDasharray="100"
-                    strokeDashoffset="100"
-                  />
+            {/* Arrow between row pairs */}
+            {i === 0 && (
+              <div data-arrow style={{ opacity: 0 }} className="absolute top-1/2 right-0 translate-x-[calc(50%-8px)] -translate-y-1/2 z-20">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 8H14M14 8L10 4M14 8L10 12" stroke="#54BBF7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <div data-arrow style={{ opacity: 0 }} className="absolute right-0 -translate-y-px">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 6L10 6M10 6L7 3M10 6L7 9" stroke={steps[i + 1].color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-                  </svg>
-                </div>
+              </div>
+            )}
+            {i === 2 && (
+              <div data-arrow style={{ opacity: 0 }} className="absolute top-1/2 right-0 translate-x-[calc(50%-8px)] -translate-y-1/2 z-20">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 8H14M14 8L10 4M14 8L10 12" stroke="#6166DC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
             )}
           </div>
         ))}
+        {/* Vertical arrow from top row to bottom row */}
+        <div data-arrow style={{ opacity: 0 }} className="absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-[calc(50%+4px)] z-20">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 2V14M8 14L4 10M8 14L12 10" stroke="#4DBE95" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
       </div>
 
-      {/* Mobile: vertical flow */}
+      {/* Mobile: single column with arrows */}
       <div className="flex sm:hidden flex-col items-center gap-0">
         {steps.map((s, i) => (
           <div key={s.label} className="contents">
-            <div data-node style={{ opacity: 0 }} className="relative z-10">
-              <div
-                className="w-full max-w-[260px] rounded-2xl flex items-center gap-3 p-4 border-2 transition-all duration-300"
-                style={{ borderColor: s.color + "50", backgroundColor: s.color + "08" }}
-              >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: s.color + "15" }}>
+            <div
+              data-flash
+              style={{ opacity: 0, borderLeft: `4px solid ${s.color}` }}
+              className="w-full max-w-[320px] sigma-card rounded-xl p-4 cursor-default relative overflow-hidden"
+            >
+              <div className="flex items-center gap-3">
+                <div className="absolute top-3 right-3 text-[10px] font-mono font-bold rounded-full w-6 h-6 flex items-center justify-center" style={{ color: s.color, backgroundColor: s.color + "15" }}>
+                  {s.num}
+                </div>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: s.color + "12" }}>
                   <s.icon className="w-5 h-5" style={{ color: s.color }} />
                 </div>
                 <div>
-                  <span className="text-sm font-bold text-foreground block">{s.label}</span>
-                  <span className="text-[10px] text-muted-foreground">{s.sub}</span>
+                  <h3 className="text-sm font-bold text-foreground">{s.label}</h3>
+                  <p className="text-xs text-muted-foreground">{s.sub}</p>
                 </div>
               </div>
             </div>
             {i < steps.length - 1 && (
-              <svg data-line className="w-0.5 h-8 relative overflow-hidden my-0" style={{ transformOrigin: "top" }}>
-                <line x1="0" y1="0" x2="0" y2="100%" stroke={`${steps[i + 1].color}30`} strokeWidth="2" />
-                <line
-                  data-flow-line
-                  x1="0" y1="0" x2="0" y2="100%"
-                  stroke={`${steps[i + 1].color}80`}
-                  strokeWidth="2"
-                  strokeDasharray="100"
-                  strokeDashoffset="100"
-                />
-              </svg>
+              <div data-arrow style={{ opacity: 0 }} className="my-1">
+                <svg width="12" height="16" viewBox="0 0 12 16" fill="none">
+                  <path d="M6 2V14M6 14L2 10M6 14L10 10" stroke={steps[i + 1].color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
+                </svg>
+              </div>
             )}
           </div>
         ))}
@@ -657,7 +629,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#070709" }}>
-      <style>{`@keyframes flow { 0% { transform: translateX(-48px); } 100% { transform: translateX(calc(100% + 48px)); } }`}</style>
 
       {/* Nav */}
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl" style={{ backgroundColor: "rgba(7,7,9,0.85)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
