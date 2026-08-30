@@ -104,7 +104,7 @@ flowchart LR
 + PASS  Wallet Connect — MetaMask integration with Somnia chain switch
 + PASS  Bot Controls — Start/Stop/Claim buttons with live status
 + PASS  Theme Toggle — dark/light mode
-+ PASS  15 UI kit libraries integrated (Radix, Framer Motion, lightweight-charts, sonner, date-fns, etc.)
++ PASS  15 UI libraries integrated (Radix, anime.js, Three.js, lightweight-charts, sonner, date-fns, etc.)
 
 ### The backtest
 
@@ -220,7 +220,6 @@ The Edge Radar terminal includes:
 - **Interval Filter** — Radix Select dropdown to filter windows by cadence (15m / 1h / 4h / 24h)
 - **Watchlist** — Radix Switch toggle per card to track specific windows
 - **Tooltips** — Hover explanations on sigma, edge, kelly, and all stat cards
-- **Stagger Animations** — Cards entrance with framer-motion stagger, hover lift, tap shrink
 - **Window Detail Tabs** — Fair Value / Market Price / Chart (lightweight-charts)
 - **Backtest Tabs** — Calibration / By Time (τ) / By Cadence
 - **Accordion Assumptions** — Collapsible model limitations section
@@ -230,7 +229,48 @@ The Edge Radar terminal includes:
 - **Skeleton Loaders** — Graceful loading states on all pages
 - **Toast Notifications** — sonner toasts for data load, bot actions, errors
 - **Error Boundary** — Catches chart/rendering failures with retry
-- **Scroll Animations** — whileInView on backtest and track record
+- **Three.js 3D Backgrounds** — Interactive 3D scenes on every page: wireframe globe with particles (landing), radar sweep (edge radar), rotating crystal (track record), 3D calibration bars (backtest)
+- **Flashcard Data Flow** — 2×2 grid pipeline visualization with stagger-from-center spring animation
+- **Live Volatility Chart** — Continuously animating canvas waveform with multi-layer waves and tracking dot
+- **Scroll-Triggered Animations** — Every section, card, and list animates on scroll using anime.js `onScroll`
+- **Letter-by-Letter Title** — Hero "Sigma" title reveals character-by-character using `splitText`
+- **Scramble Text** — Hero tagline uses `scrambleText` for cinematic decode effect
+- **Keyframe Hover Effects** — Multi-bounce on CTA buttons, stats cards, and flashcards using duration keyframes
+- **SVG Stroke Drawing** — Data flow arrows draw progressively on scroll
+
+### Animation engine: anime.js v4
+
+All animations use anime.js v4.5.0 — zero framer-motion. Features used:
+
+| Feature | Where | Effect |
+|---|---|---|
+| `scrambleText` | Hero tagline | Cinematic decode effect — replaces 20 lines of custom code |
+| `splitText` | Hero "Sigma" title | Letter-by-letter reveal with rotateX, stagger from center |
+| `onScroll` | Every section, card, list | Replaces all manual IntersectionObserver — animation triggers on scroll |
+| `stagger from:"center"` | KPI cards, flashcards, stats | Dramatic center-outward reveal |
+| `stagger grid` | Edge Radar market grid | 2D grid-aware stagger (3 cols × N rows) |
+| `stagger jitter` | StaggerList, flashcards | Random ±40ms offset for organic feel |
+| `spring()` | FlowDiagram nodes, stats cards, market cards | Physics-based bouncy easing |
+| `keyframes` | CTA buttons, stats hover | Multi-step bounce: scale 1→1.04→0.98→1.02→1 |
+| `createLayout` | Category filter | Layout-aware reorder animations |
+| `SVG drawable` | Data flow arrows | Progressive stroke-drawing on scroll |
+| `lerp` / `damp` | Three.js hero camera | Smooth mouse-reactive camera interpolation |
+| `random()` | Live price ticker | Randomized price movement |
+| `onRender` | Solution formula | Progress-tracked glow pulse fires at 50% |
+| `createTimeline` | Three.js hero entrance | Sequenced globe, terrain, particles, rings |
+
+### 3D engine: Three.js
+
+Four interactive 3D scenes, one per page, all rendered with Three.js:
+
+| Scene | Page | Elements |
+|---|---|---|
+| **Wireframe Globe** | Landing | Icosahedron wireframe, 600 floating particles, wave terrain, 3 orbiting rings, 24 node points with connection lines |
+| **Radar Sweep** | Edge Radar | Rotating sweep, blip points, cross lines, particles |
+| **Calibration Bars** | Backtest | 3D bar chart, grid plane, diagonal reference line, particles |
+| **Crystal Octahedron** | Track Record | Rotating octahedron, 2 orbiting rings, win/loss columns, particles |
+
+All scenes use anime.js `createTimeline` for sequenced entrance animations and `lerp`/`damp` for smooth camera movement.
 
 ### UI stack
 
@@ -239,7 +279,8 @@ The Edge Radar terminal includes:
 | Next.js 16 + React 19 | App framework |
 | Tailwind CSS v4 | Styling |
 | Radix UI (8 primitives) | Accessible components |
-| Framer Motion | Animations |
+| anime.js v4 | All animations — stagger, spring, scroll-triggered, keyframes, scrambleText, splitText, layout |
+| Three.js | 3D backgrounds — wireframe globe, radar sweep, crystal, calibration bars |
 | lightweight-charts | Price charts |
 | sonner | Toast notifications |
 | next-themes | Dark/light mode |
