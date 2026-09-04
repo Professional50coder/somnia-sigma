@@ -12,17 +12,52 @@ interface IBinaryPoolRead { struct BookLevel { uint256 price; uint256 quantity; 
 contract SigmaOracle {
     uint256 private constant WAD = 1e18;
     uint256 private constant BPS = 1e4;
+    /// @dev Degrees-of-freedom floor for the Student-t model: below this the
+    ///      distribution has infinite variance and stops being a meaningful
+    ///      volatility-scaled fat-tail model (see BinaryPricer.studentCdf).
+    uint256 private constant MIN_NU_WAD = 2 * WAD;
     enum Reason { Ok, NoWindow, Expired, VolNotReady, NoSpot, ScaleMismatch, NoBook }
     struct FairValue {
         uint256 fairProbBps; uint256 impliedProbBps; int256 edgeBps; uint256 breakEvenBps;
         uint256 kellyWad; uint256 sigmaWad; uint256 tauWad; uint64 updatedAt; Reason reason; bool ok;
+        uint256 studentFairProbBps; int256 studentEdgeBps;
     }
     RealizedVol public immutable realizedVol;
     SigmaWindowRegistry public immutable registry;
+    address public owner;
+    /// @notice Student-t degrees of freedom, WAD. Default 5.2 matches the
+    ///         method-of-moments estimate from 3,000 real BTC/USDC one-minute
+    ///         candles (see backtest/RESULTS.md, docs/RESEARCH.md §5).
+    uint256 public nuWad = 5_200_000_000_000_000_000;
     mapping(bytes32 => FairValue) private _fairValues;
-    event FairValuePublished(bytes32 indexed marketId, int256 edgeBps, uint256 fairProbBps, uint256 impliedProbBps, Reason reason);
+    event FairValuePublished(
+        bytes32 indexed marketId, int256 edgeBps, uint256 fairProbBps, uint256 impliedProbBps, Reason reason,
+        uint256 studentFairProbBps, int256 studentEdgeBps
+    );
+    event NuUpdated(uint256 previousNuWad, uint256 newNuWad);
 
-    constructor(RealizedVol realizedVol_, SigmaWindowRegistry registry_) { realizedVol = realizedVol_; registry = registry_; }
+    error NotOwner();
+    error NuTooLow();
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    constructor(RealizedVol realizedVol_, SigmaWindowRegistry registry_) {
+        realizedVol = realizedVol_;
+        registry = registry_;
+        owner = msg.sender;
+    }
+
+    /// @notice Recalibrate the Student-t degrees-of-freedom parameter.
+    /// @dev Owner-gated rather than immutable so the fat-tail fit can be
+    ///      re-estimated from fresh data without redeploying the oracle.
+    function setNu(uint256 nuWad_) external onlyOwner {
+        if (nuWad_ <= MIN_NU_WAD) revert NuTooLow();
+        emit NuUpdated(nuWad, nuWad_);
+        nuWad = nuWad_;
+    }
 
     function getFairValue(bytes32 marketId) external view returns (FairValue memory) { return _fairValues[marketId]; }
 
@@ -37,7 +72,10 @@ contract SigmaOracle {
         }
         value.updatedAt = uint64(block.timestamp);
         _fairValues[marketId] = value;
-        emit FairValuePublished(marketId, value.edgeBps, value.fairProbBps, value.impliedProbBps, value.reason);
+        emit FairValuePublished(
+            marketId, value.edgeBps, value.fairProbBps, value.impliedProbBps, value.reason,
+            value.studentFairProbBps, value.studentEdgeBps
+        );
     }
 
     function refreshAll() external returns (uint256 count) {
@@ -64,7 +102,9 @@ contract SigmaOracle {
         if (ratio <= WAD / 2 || ratio >= WAD * 2) { value.reason = Reason.ScaleMismatch; return value; }
         uint256 tau = (uint256(w.expiry - uint64(block.timestamp)) * WAD) / (w.expiry - w.tradingStart);
         uint256 fair = BinaryPricer.probUp(spot, openingWad, sigma, tau, BinaryPricer.SettlementStyle.Terminal);
+        uint256 studentFair = BinaryPricer.studentProbUp(spot, openingWad, sigma, tau, nuWad, BinaryPricer.SettlementStyle.Terminal);
         value.fairProbBps = fair * BPS / WAD;
+        value.studentFairProbBps = studentFair * BPS / WAD;
         value.sigmaWad = sigma;
         value.tauWad = tau;
         value.reason = Reason.Ok;
@@ -73,8 +113,10 @@ contract SigmaOracle {
     function _applyBook(FairValue memory value, uint256 bookPriceWad) private pure returns (FairValue memory) {
         if (bookPriceWad == 0 || bookPriceWad >= WAD) { value.reason = Reason.NoBook; return value; }
         uint256 fairWad = value.fairProbBps * WAD / BPS;
+        uint256 studentFairWad = value.studentFairProbBps * WAD / BPS;
         value.impliedProbBps = bookPriceWad * BPS / WAD;
         value.edgeBps = BinaryPricer.edgeBps(fairWad, bookPriceWad);
+        value.studentEdgeBps = BinaryPricer.edgeBps(studentFairWad, bookPriceWad);
         value.breakEvenBps = BinaryPricer.breakEvenWinRateBps(bookPriceWad);
         value.kellyWad = BinaryPricer.kellyFractionWad(fairWad, bookPriceWad);
         value.ok = true;
