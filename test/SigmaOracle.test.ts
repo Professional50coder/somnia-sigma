@@ -200,4 +200,80 @@ describe("SigmaOracle", () => {
     assert.equal(fv.reason, Reason.Ok);
     assert.equal(fv.impliedProbBps, 7000n);
   });
+
+  describe("Student-t fat-tail model", () => {
+    it("defaults nuWad to 5.2, the backtest-calibrated value", async () => {
+      assert.equal(await oracle.read.nuWad(), 5_200_000_000_000_000_000n);
+    });
+
+    it("publishes studentFairProbBps that exactly matches BinaryPricer.studentProbUp for the same inputs", async () => {
+      const spot = await seedVol(vol, BTC, 40, 10n, 100_300n * WAD);
+      const now = BigInt(await networkHelpers.time.latest()) + 5n;
+      const tradingStart = now - 810n;
+      const expiry = now + 90n;
+      await registry.write.publishWindow([windowInput({ tradingStart, expiry })]);
+
+      await networkHelpers.time.setNextBlockTimestamp(now);
+      await oracle.write.refresh([marketId]);
+      const fv = await oracle.read.getFairValue([marketId]);
+
+      const [sigma] = await vol.read.sigmaForSecondsWad([BTC, INTERVAL]);
+      const tau = ((expiry - now) * WAD) / BigInt(INTERVAL);
+      const nu = await oracle.read.nuWad();
+      const expectedStudentProb: bigint = await harness.read.studentProbUp([spot, 100_000n * WAD, sigma, tau, nu, 0]);
+      assert.equal(fv.studentFairProbBps, (expectedStudentProb * 10_000n) / WAD);
+      // The Gaussian and Student-t fair values are both published side by side,
+      // computed from the exact same spot/sigma/tau -- only the tail shape differs.
+      assert.notEqual(fv.fairProbBps, fv.studentFairProbBps);
+    });
+
+    it("computes studentEdgeBps against the book independently of the Gaussian edge", async () => {
+      await seedVol(vol, BTC, 40, 10n, 100_300n * WAD);
+      const now = BigInt(await networkHelpers.time.latest()) + 5n;
+      await registry.write.publishWindow([windowInput({ tradingStart: now - 810n, expiry: now + 90n })]);
+      await pool.write.setBestAsk([700_000n, WAD]);
+
+      await networkHelpers.time.setNextBlockTimestamp(now);
+      await oracle.write.refresh([marketId]);
+      const fv = await oracle.read.getFairValue([marketId]);
+
+      assert.equal(fv.studentEdgeBps, BigInt(fv.studentFairProbBps) - BigInt(fv.impliedProbBps));
+    });
+
+    it("lets the owner recalibrate nuWad and reflects it in the next refresh", async () => {
+      const [, other] = await viem.getWalletClients();
+      await seedVol(vol, BTC, 40, 10n, 100_300n * WAD);
+      const now = BigInt(await networkHelpers.time.latest()) + 5n;
+      const tradingStart = now - 810n;
+      const expiry = now + 90n;
+      await registry.write.publishWindow([windowInput({ tradingStart, expiry })]);
+
+      await oracle.write.setNu([wad(8)]);
+      assert.equal(await oracle.read.nuWad(), wad(8));
+
+      await networkHelpers.time.setNextBlockTimestamp(now);
+      await oracle.write.refresh([marketId]);
+      const fv = await oracle.read.getFairValue([marketId]);
+
+      const [sigma] = await vol.read.sigmaForSecondsWad([BTC, INTERVAL]);
+      const spot = await vol.read.lastPriceWad([BTC]);
+      const tau = ((expiry - now) * WAD) / BigInt(INTERVAL);
+      const expectedStudentProb: bigint = await harness.read.studentProbUp([spot, 100_000n * WAD, sigma, tau, wad(8), 0]);
+      assert.equal(fv.studentFairProbBps, (expectedStudentProb * 10_000n) / WAD);
+    });
+
+    it("rejects setNu from a non-owner", async () => {
+      const [, other] = await viem.getWalletClients();
+      await assert.rejects(oracle.write.setNu([wad(8)], { account: other.account }));
+    });
+
+    it("rejects setNu below the finite-variance floor of 2", async () => {
+      await assert.rejects(oracle.write.setNu([wad(2)]));
+      await assert.rejects(oracle.write.setNu([wad(1.5)]));
+    });
+  });
 });
+
+function wad(n: number): bigint {
+  return BigInt(Math.round(n * 1e18));
+}
