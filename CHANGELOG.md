@@ -8,6 +8,12 @@ complete.
 
 ### Added
 
+- `SigmaOracle`: Student-t fat-tail fair value (`studentFairProbBps`,
+  `studentEdgeBps`) computed and published alongside the original Gaussian
+  fair value on every `refresh()`, using an owner-settable `nuWad` (default
+  5.2, matching the backtest's method-of-moments estimate). Redeployed as
+  SigmaOracle v2 / SigmaCron v2 on Shannon testnet; see
+  `docs/DEPLOYMENT-LEDGER.md` for the live proof transaction.
 - `SigmaReactiveVol`: precompile-authorised bridge from dreamDEX mark prices to
   the realised-volatility estimator.
 - `SigmaWindowRegistry`: publisher-auditable on-chain window metadata.

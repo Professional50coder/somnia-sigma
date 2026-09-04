@@ -8,7 +8,7 @@
 
 Hitansh Gopani · August 2026
 
-[Edge Radar (live)] ([https://somnia-sigma-git-main-hitanshs-projects.vercel.app](https://frontend-jade-beta-md6533cyvr.vercel.app/)) · [Architecture](docs/ARCHITECTURE.md) · [Deployment Ledger](docs/DEPLOYMENT-LEDGER.md) · [Research Base](docs/RESEARCH.md)
+[Edge Radar (live)](https://frontend-jade-beta-md6533cyvr.vercel.app/) · [Architecture](docs/ARCHITECTURE.md) · [Deployment Ledger](docs/DEPLOYMENT-LEDGER.md) · [Research Base](docs/RESEARCH.md)
 
 Contract addresses on Somnia Shannon testnet (chain 50312) — see [§ 06](#section-06--deployed-contracts).
 
@@ -97,13 +97,20 @@ This isn't an AI prediction or a black-box model.
 
 **It's deterministic financial mathematics running on-chain.**
 
-### Student-t fat-tail model (backtested, not yet on-chain)
+### Student-t fat-tail model (live on-chain, alongside Gaussian)
 
 A Student-t model with approximately **ν ≈ 5.2** improves calibration by capturing extreme moves the Gaussian model misses:
 
 $$F(x; \nu) \approx \Phi\left(x \cdot \sqrt{\frac{\nu - 1.5}{\nu + x^2 - 0.5}}\right)$$
 
-The Student-t model is currently **backtested but not yet integrated into the on-chain SigmaOracle**.
+The Student-t model is now **wired directly into the on-chain `SigmaOracle`**:
+every `refresh()` computes and publishes both `fairProbBps` (Gaussian) and
+`studentFairProbBps` (Student-t, using an owner-settable `nuWad`, defaulted to
+5.2) from the exact same spot/volatility/time inputs. First live proof, same
+transaction: **33.63% Gaussian vs 35.64% Student-t** fair probability against
+a real 32.40% book price (+123 bps vs +324 bps edge) — see
+[`docs/DEPLOYMENT-LEDGER.md`](docs/DEPLOYMENT-LEDGER.md) § *Upgrade —
+2026-09-04*.
 
 ---
 
@@ -179,7 +186,7 @@ xychart-beta
 
 | Limitation | Impact | Status |
 |---|---|---|
-| Zero-drift GBM understates fat tails | Predicted 0.2% realises 14% | Student-t improves to 5.1%, not yet on-chain |
+| Zero-drift GBM understates fat tails | Predicted 0.2% realises 14% | Student-t improves to 5.1%, now live on-chain in SigmaOracle v2 |
 | Mark price, not signed oracle | Cross-checked 0.12% from perp index | Acceptable for testnet |
 | Builder fees disabled | Revenue model testable on mainnet only | Implemented, waiting |
 | Reactivity not delivering | 6 subscriptions tested, 0 callbacks | Fallback price pusher works |
@@ -193,10 +200,10 @@ xychart-beta
 | Component | Status | How to verify |
 |---|---|---|
 | On-chain volatility (EWMA) | **LIVE** | `scripts/verify-unattended.mjs` |
-| On-chain fair-value pricing | **LIVE** | `npx hardhat test` (111 tests) |
+| On-chain fair-value pricing | **LIVE** | `npx hardhat test` (117 tests) |
 | Fair-value oracle | **LIVE** | `scripts/publish-and-refresh-btc-window.mjs` |
-| Student-t fat-tail model | **LIVE** | `npx hardhat test --grep "studentCdf"` (8 tests) |
-| Edge Radar frontend | **LIVE** | [vercel deployment](https://somnia-sigma-git-main-hitanshs-projects.vercel.app) |
+| Student-t fat-tail model | **LIVE** | Wired into `SigmaOracle.refresh()`, published alongside Gaussian every call; `npx hardhat test` (117/117 passing, incl. 6 covering this wiring) |
+| Edge Radar frontend | **LIVE** | [vercel deployment](https://frontend-jade-beta-md6533cyvr.vercel.app/) |
 | Trading strategy | **LIVE** | `bot/run-dry-run.mjs` |
 | Backtesting system | **LIVE** | `backtest/run-backtest.mjs` |
 | Reactivity subscription | **NOT DELIVERING** | 6 tested, 0 callbacks |
@@ -298,8 +305,8 @@ Instead of treating blockchain as merely the place where a bet is settled, Sigma
 | RealizedVol | `0xbd7eedfa178d8eb094449e3461e83195f4b062ef` |
 | SigmaReactiveVol | `0x5f6a29b5717841f6f7b394be6936ea176dc63d28` |
 | SigmaWindowRegistry | `0x16b9d8c364d70f38d0b04b760439efc794a46731` |
-| SigmaOracle | `0xe4c7be7dca5f536cfb18df61b01f3a952e902270` |
-| SigmaCron | `0xc573c7b699690d1821aa4156ef7c09ee9ceba0e7` |
+| SigmaOracle (v2 — Gaussian + Student-t) | `0x35cd22b3d983329d2ba9131d982a91e528a0b931` |
+| SigmaCron | `0x3e30784b649558befbb2897429d5a0e5544c007c` |
 
 Full transaction history: [`docs/DEPLOYMENT-LEDGER.md`](docs/DEPLOYMENT-LEDGER.md).
 
@@ -330,7 +337,7 @@ That is the layer Sigma adds to prediction markets.
 | What judges look for | What Sigma delivers |
 |---|---|
 | **Innovation** — a novel use of Event Contracts | On-chain fair probability using closed-form Black-Scholes — the only project computing the price itself rather than quoting, verifying, or wrapping it |
-| **Technical depth** — effective use of DreamDEX APIs/SDKs | 5 Solidity contracts, 111 Hardhat tests, triple-validated math (Solidity + TypeScript + SciPy), on-chain EWMA volatility, complete bot pipeline |
+| **Technical depth** — effective use of DreamDEX APIs/SDKs | 5 Solidity contracts, 117 Hardhat tests, triple-validated math (Solidity + TypeScript + SciPy), on-chain EWMA volatility, Gaussian + Student-t fair value both live, complete bot pipeline |
 | **User experience** — intuitive and compelling | Three.js 3D backgrounds, anime.js scroll animations, live Edge Radar with wallet connect, real-time fair value vs market price display |
 | **Ecosystem impact** — potential for adoption | Infrastructure layer any prediction market can read from — bots, frontends, and other contracts all consume the same on-chain signal |
 | **Clear communication** — problem, solution, demo | Live deployment on Shannon testnet, video walkthrough, reproducible repo, honest status table (what's live, what's backtested, what's not yet) |
@@ -339,11 +346,11 @@ Sigma is not a trading frontend. It is not an AI agent. It is the **pricing laye
 
 ---
 
-## SECTION 11 · REPOSITORY
+## SECTION 12 · REPOSITORY
 
 ```
 contracts/           5 Solidity contracts + interfaces
-test/                111 Hardhat tests
+test/                117 Hardhat tests
 scripts/             deploy, compile, diagnostics, price feed, cron subscription, auto-trade, scheduled-runner, proof-of-work
 bot/                 ec-sigma strategy, quantize, dry-run, live runner
 backtest/            historical replay, calibration analysis, Student-t comparison
@@ -402,12 +409,12 @@ The `proofs/` directory contains operational logs and proof-of-work artifacts:
 
 ---
 
-## SECTION 12 · WHAT I'D FIX FIRST
+## SECTION 13 · WHAT I'D FIX FIRST
 
 | Priority | Item | Impact | Status |
 |---|---|---|---|
 | 1 | Reactivity delivery | Remove off-chain dependency entirely | 6 tested, 0 callbacks — fallback works |
-| 2 | Student-t on-chain | -20.6% log loss, better tail calibration | Backtested, not yet integrated |
+| 2 | ~~Student-t on-chain~~ | ~~-20.6% log loss, better tail calibration~~ | **Done** — wired into SigmaOracle v2, live proof in `docs/DEPLOYMENT-LEDGER.md` |
 | 3 | Builder fees | Revenue model | Implemented, disabled on Shannon |
 | 4 | Live bot validation | Prove full pipeline end-to-end | DRY_RUN works, real orders pending |
 | 5 | Market data integration | Richer feed for better backtest | GraphQL works, price history limited |
@@ -416,7 +423,7 @@ None of these are architectural. The hard part — on-chain vol measurement, clo
 
 ---
 
-## SECTION 13 · WHAT THIS IS NOT
+## SECTION 14 · WHAT THIS IS NOT
 
 | Claim | Reality |
 |---|---|
