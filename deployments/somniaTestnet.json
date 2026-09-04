@@ -5,8 +5,8 @@
   "realizedVol": "0xbd7eedfa178d8eb094449e3461e83195f4b062ef",
   "reactiveVol": "0x5f6a29b5717841f6f7b394be6936ea176dc63d28",
   "registry": "0x16b9d8c364d70f38d0b04b760439efc794a46731",
-  "oracle": "0xe4c7be7dca5f536cfb18df61b01f3a952e902270",
-  "cron": "0xc573c7b699690d1821aa4156ef7c09ee9ceba0e7",
+  "oracle": "0x35cd22b3d983329d2ba9131d982a91e528a0b931",
+  "cron": "0x3e30784b649558befbb2897429d5a0e5544c007c",
   "transactions": {
     "RealizedVol": {
       "address": "0xbd7eedfa178d8eb094449e3461e83195f4b062ef",
@@ -24,15 +24,25 @@
       "gasUsed": "14292269"
     },
     "SigmaOracle": {
-      "address": "0xe4c7be7dca5f536cfb18df61b01f3a952e902270",
-      "hash": "0xd4e181e9ba7086ece672a6660c20c50970335d1173d3e6f030f3d64dc35bed0e",
-      "gasUsed": "21115752"
+      "address": "0x35cd22b3d983329d2ba9131d982a91e528a0b931",
+      "hash": "0x7d072a33cbe5c07f42d72b848f8e36924376c4c94586acc1b41403a0ea676dce",
+      "gasUsed": "24375582"
     },
     "SigmaCron": {
-      "address": "0xc573c7b699690d1821aa4156ef7c09ee9ceba0e7",
-      "hash": "0x20eeae735339b73df2b6105a8ebc73855bd5aec6ce6a255135b585047a2d1952",
+      "address": "0x3e30784b649558befbb2897429d5a0e5544c007c",
+      "hash": "0x75560fa92ae5ed5c88b8d1b531c6aeee827b92b178df5643d76a889588e0194e",
       "gasUsed": "4217819"
     }
   },
-  "writerWiringTx": "0x831bb558310494cb8c063236483f026ef15d3992214ffa9d6873b9d1db37d146"
+  "writerWiringTx": "0x831bb558310494cb8c063236483f026ef15d3992214ffa9d6873b9d1db37d146",
+  "upgrades": [
+    {
+      "upgradedAt": "2026-09-04T08:11:13.199Z",
+      "reason": "Wire Student-t fat-tail model (BinaryPricer.studentProbUp) into SigmaOracle; add owner-settable nuWad",
+      "previous": {
+        "oracle": "0xe4c7be7dca5f536cfb18df61b01f3a952e902270",
+        "cron": "0xc573c7b699690d1821aa4156ef7c09ee9ceba0e7"
+      }
+    }
+  ]
 }

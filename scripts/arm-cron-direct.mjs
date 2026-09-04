@@ -11,8 +11,8 @@ const CHAIN = {
   blockExplorers: { default: { name: "Shannon Explorer", url: "https://shannon-explorer.somnia.network" } },
 };
 
-const CRON = "0xc573c7b699690d1821aa4156ef7c09ee9ceba0e7";
-const ORACLE = "0xe4c7be7dca5f536cfb18df61b01f3a952e902270";
+const CRON = "0x3e30784b649558befbb2897429d5a0e5544c007c";
+const ORACLE = "0x35cd22b3d983329d2ba9131d982a91e528a0b931";
 const pk = process.env.DEPLOYER_PRIVATE_KEY;
 const account = privateKeyToAccount(pk);
 

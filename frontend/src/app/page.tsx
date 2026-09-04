@@ -15,9 +15,9 @@ const CHAIN = "https://shannon-explorer.somnia.network";
 
 const contracts = [
   { name: "RealizedVol", addr: "0xbd7eedfa178d8eb094449e3461e83195f4b062ef", desc: "On-chain EWMA volatility accumulator" },
-  { name: "SigmaOracle", addr: "0xe4c7be7dca5f536cfb18df61b01f3a952e902270", desc: "Fair-value oracle: Φ(d₂) edge, kelly, break-even" },
+  { name: "SigmaOracle", addr: "0x35cd22b3d983329d2ba9131d982a91e528a0b931", desc: "Fair-value oracle: Φ(d₂) + Student-t edge, kelly, break-even" },
   { name: "SigmaWindowRegistry", addr: "0x16b9d8c364d70f38d0b04b760439efc794a46731", desc: "Window metadata: opening price, expiry, interval" },
-  { name: "SigmaCron", addr: "0xc573c7b699690d1821aa4156ef7c09ee9ceba0e7", desc: "Window boundary scheduler" },
+  { name: "SigmaCron", addr: "0x3e30784b649558befbb2897429d5a0e5544c007c", desc: "Window boundary scheduler" },
   { name: "SigmaReactiveVol", addr: "0x5f6a29b5717841f6f7b394be6936ea176dc63d28", desc: "Reactive volatility delivery wrapper" },
 ];
 
@@ -26,13 +26,14 @@ const proofs = [
   { title: "Writer Authorization", tx: "0xcd1ea9e4d57be9893a027f112f9dc708cf31e0ff875b00e7df65e9aa161840d7", desc: "setWriter — deployer wallet authorized for price feed" },
   { title: "Funded Bot Wallet", tx: "0x9ea423174e8eb5176f8329edf07402d58178ee7ef88441d25f5e015a81145b7d", desc: "25 STT transferred from Bot to Deployer for gas" },
   { title: "RealizedVol Deploy", tx: "0x0935f529d024352ad408abe4396ba239195748339adfe5f3d0624b1269700436", desc: "Contract deployment — 11.7M gas" },
-  { title: "SigmaOracle Deploy", tx: "0xd4e181e9ba7086ece672a6660c20c50970335d1173d3e6f030f3d64dc35bed0e", desc: "Fair-value oracle deployment — 21.1M gas" },
+  { title: "SigmaOracle Deploy (v2, Student-t)", tx: "0x7d072a33cbe5c07f42d72b848f8e36924376c4c94586acc1b41403a0ea676dce", desc: "Fair-value oracle redeployment with Student-t wired in — 24.4M gas" },
+  { title: "First Live Gaussian + Student-t Fair Value", tx: "0x711f78ac8c1933d79bcf2fa6176d7c9f0e47e0195185029fb5d9614b53f201b6", desc: "Same refresh() call: 33.63% Gaussian vs 35.64% Student-t fair prob on a real BTC window" },
 ];
 
 const kpis = [
-  { value: 428, label: "On-chain Samples", suffix: "", icon: BarChart3, color: "#54BBF7" },
+  { value: 434, label: "On-chain Samples", suffix: "", icon: BarChart3, color: "#54BBF7" },
   { value: 5, label: "Deployed Contracts", suffix: "", icon: Shield, color: "#4DBE95" },
-  { value: 111, label: "Hardhat Tests", suffix: "", icon: CheckCircle2, color: "#6166DC" },
+  { value: 117, label: "Hardhat Tests", suffix: "", icon: CheckCircle2, color: "#6166DC" },
   { value: 54, label: "Avg Edge (bps)", suffix: "+", icon: TrendingUp, color: "#4DBE95" },
   { value: 20.6, label: "Student-t Improvement", suffix: "%", icon: Target, color: "#C27C58" },
   { value: 78054, label: "BTC Spot Price", suffix: "", icon: DollarSign, color: "#54BBF7", prefix: "$" },
@@ -650,7 +651,7 @@ export default function LandingPage() {
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            <a href={`${CHAIN}/address/0xe4c7be7dca5f536cfb18df61b01f3a952e902270`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono text-muted-foreground hover:text-foreground border border-border hover:border-primary/30 transition-all">
+            <a href={`${CHAIN}/address/0x35cd22b3d983329d2ba9131d982a91e528a0b931`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono text-muted-foreground hover:text-foreground border border-border hover:border-primary/30 transition-all">
               <Globe className="w-3 h-3" /> 50312
             </a>
             <Link href="/edge-radar" data-nav-link className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
