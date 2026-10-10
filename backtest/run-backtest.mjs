@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { probUp, studentProbUp, estimateNu } from "./pricer.mjs";
+import { probUp, studentProbUp, estimateNu, normalCdf } from "./pricer.mjs";
 
 const { source, bars } = JSON.parse(readFileSync(new URL("./data/btc_m1.json", import.meta.url)));
 const BAR_SEC = 60;
@@ -121,6 +121,23 @@ studentLogloss /= points.length;
 console.log(`\n  Gaussian  — Brier: ${brier.toFixed(4)}  Log loss: ${logloss.toFixed(4)}`);
 console.log(`  Student-t — Brier: ${studentBrier.toFixed(4)}  Log loss: ${studentLogloss.toFixed(4)}`);
 console.log(`  Improvement: ${((brier - studentBrier) / brier * 100).toFixed(2)}% Brier, ${((logloss - studentLogloss) / logloss * 100).toFixed(2)}% log loss\n`);
+
+// ---- control: Gaussian clipped to the Student-t approximation's reachable range ----
+// The closed-form approximation F(x) ~ Phi(x*sqrt((nu-1.5)/(nu+x^2-0.5))) tends to
+// Phi(sqrt(nu-1.5)) as |x| grows, so it can never output below 1-c or above c.
+// Clipping the plain Gaussian to the same band separates "fatter tails" from
+// "probabilities simply cannot get extreme".
+const bandHi = normalCdf(Math.sqrt(estimatedNu - 1.5));
+let clippedLogloss = 0, clippedBrier = 0;
+for (const p of points) {
+  const q = Math.min(bandHi, Math.max(1 - bandHi, p.predicted));
+  clippedBrier += (q - p.outcome) ** 2;
+  clippedLogloss += -(p.outcome * Math.log(q) + (1 - p.outcome) * Math.log(1 - q));
+}
+clippedBrier /= points.length;
+clippedLogloss /= points.length;
+console.log(`  Control: Gaussian clipped to [${(1 - bandHi).toFixed(4)}, ${bandHi.toFixed(4)}] (Student-t reachable range) -- Brier: ${clippedBrier.toFixed(4)}  Log loss: ${clippedLogloss.toFixed(4)}
+`);
 
 // ---- breakout by tau bucket (quintiles of tau) and by cadence ----
 function summarize(filterFn) {
