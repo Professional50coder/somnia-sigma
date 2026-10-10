@@ -2,57 +2,79 @@
 
 <h1 align="center">Sigma</h1>
 <p align="center"><strong>One line to beat. Sigma tells you the odds.</strong></p>
-<p align="center">The on-chain fair-value layer for dreamDEX Event Contracts, on Somnia.</p>
+<p align="center">An on-chain fair-value oracle for dreamDEX Event Contracts on Somnia (testnet).</p>
 
----
+<p align="center">
+  <a href="https://github.com/Professional50coder/somnia-sigma/actions/workflows/ci.yml"><img src="https://github.com/Professional50coder/somnia-sigma/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
+  <img src="https://img.shields.io/badge/network-Somnia%20Shannon%20testnet-6c5ce7" alt="testnet only">
+  <img src="https://img.shields.io/badge/solidity-0.8.28-363636" alt="Solidity 0.8.28">
+</p>
 
-Sigma computes the probability that a dreamDEX Event Contract settles YES, compares it with the live order book, and publishes fair value, edge, break-even and a Kelly sizing signal on-chain, where any contract, bot or frontend can read it.
+> **Experimental, testnet only, not financial advice.** Sigma publishes a model probability, not a recommendation. It has no verified trading P&L: the bot has only run in dry-run mode, and the bundled track record is sample data. Do not trade real funds on it.
 
-Hitansh Gopani · August 2026
+A dreamDEX Event Contract pays 1 if BTC or ETH finishes a window (15m / 1h / 4h / 24h) at or above its opening price. That is a cash-or-nothing digital option, so its fair value has a closed form. Sigma computes it on-chain, next to the live order book, and publishes the **fair probability, edge, break-even win rate and Kelly fraction** where any contract, bot or UI can read it.
 
-| | |
-|---|---|
-| **Live app (Edge Radar)** | https://frontend-jade-beta-md6533cyvr.vercel.app/ |
-| **Demo video** | https://youtu.be/nm2qWuQs7RU |
-| **Source** | https://github.com/Professional50coder/somnia-sigma |
-| **Network** | Somnia Shannon testnet, chain ID `50312` |
-| **Explorer** | https://shannon-explorer.somnia.network |
-| **SigmaOracle (v2)** | [`0x35cd22b3d983329d2ba9131d982a91e528a0b931`](https://shannon-explorer.somnia.network/address/0x35cd22b3d983329d2ba9131d982a91e528a0b931) |
-| **Docs** | [Architecture](docs/ARCHITECTURE.md) · [Deployment Ledger](docs/DEPLOYMENT-LEDGER.md) · [Research Base](docs/RESEARCH.md) · [Backtest Results](backtest/RESULTS.md) |
+Hitansh Gopani · August 2026 · [Live app](https://frontend-jade-beta-md6533cyvr.vercel.app/) · [Demo video](https://youtu.be/nm2qWuQs7RU) · [Explorer](https://shannon-explorer.somnia.network)
 
 <a href="https://youtu.be/nm2qWuQs7RU">
-<img src="brand/sigma-thumbnail.png" width="640" alt="Sigma — One Line to Beat. It Tells You The Odds.">
+<img src="brand/sigma-thumbnail.png" width="640" alt="Sigma demo video thumbnail">
 </a>
 
-### At a glance
+## Worked example
 
-- **Pricing in Solidity.** Fair probability is `Φ(d₂)` under zero-drift GBM, plus a Student-t fat-tail variant, both computed in `SigmaOracle` on every `refresh()`.
-- **Volatility on-chain.** `RealizedVol` keeps a time-aware EWMA of BTC mark-price returns from dreamDEX `MarkPriceUpdated` events.
-- **Honest status.** 5 contracts live on Shannon testnet, 117 Hardhat tests, math cross-checked against SciPy. Reactivity push delivery is not working; a documented off-chain pusher feeds prices instead.
+BTC window opened at 81,281.9. Spot is now 81,525.7 (+0.30%), a quarter of the window is left, window volatility is 0.35%, and the book asks 70% for YES. This is a hypothetical input set; run it yourself with `node backtest/example.mjs`:
 
-### Contents
+```
+Gaussian fair prob : 95.64%
+Student-t fair prob: 88.33%
+Book (YES price)   : 70.00%
+Edge               : 2564 bps
+Break-even win rate: 7000 bps
+Kelly fraction     : 85.47% of bankroll
+```
 
-1. [The problem](#the-problem)
-2. [Why we built it](#why-we-built-it)
-3. [What it does](#what-it-does)
-4. [Use cases](#use-cases)
-5. [Product tour](#product-tour)
-6. [How it works: one window, end to end](#how-it-works-one-window-end-to-end)
-7. [Architecture](#architecture)
-8. [Models and protocols](#models-and-protocols)
-9. [Backtesting and model research](#backtesting-and-model-research)
-10. [Design decisions](#design-decisions)
-11. [Feature matrix](#feature-matrix)
-12. [Trust, security and limits](#trust-security-and-limits)
-13. [Where it stands](#where-it-stands)
-14. [Tech stack](#tech-stack)
-15. [Repository layout](#repository-layout)
-16. [Running locally](#running-locally)
-17. [Testing](#testing)
-18. [Deploying](#deploying)
-19. [Roadmap](#roadmap)
+The Gaussian 95.64% matches `scipy.stats.norm.cdf` on the same `d2` (1.7105). A Kelly fraction that large is a symptom of an overconfident input (see [Known limits](#trust-security-and-limits)), not advice to stake 85%.
 
----
+## Quickstart
+
+No wallet, funds or install needed for the math. Node 22+.
+
+```bash
+git clone https://github.com/Professional50coder/somnia-sigma && cd somnia-sigma
+node backtest/example.mjs              # the worked example above
+npm run test:fast                      # 21 JS tests + 45 SciPy golden vectors, ~1 s
+npm run backtest                       # replays 3,000 BTC minute candles (data is committed)
+npm ci && npm test                     # 117 Hardhat tests (downloads solc and compiles on first run)
+```
+
+Copy `.env.example` to `.env` only if you want to run the write scripts against Shannon testnet with a throwaway key.
+
+## Reference
+
+| Command | What it does | Needs |
+|---|---|---|
+| `node backtest/example.mjs` | Prices one window with the JS port | Node |
+| `npm run test:fast` | Pricer property tests, quantization tests, SciPy vector check | Node |
+| `npm test` | Full Hardhat suite (BinaryPricer, RealizedVol, Oracle, Registry, Cron, ReactiveVol) | `npm ci` |
+| `npm run backtest` | Calibration + Brier/log loss, Gaussian vs Student-t | Node |
+| `cd bot && node run-dry-run.mjs` | Evaluates live markets, signs nothing | Network |
+| `cd frontend && npm i && npm run dev` | Edge Radar UI on :3000 | Node |
+| `node scripts/*.mjs` | Deploy, price pusher, cron, auto-trade | Funded testnet key |
+
+## Measured results
+
+Everything below was re-run for this README (2026-10-10).
+
+| Check | Command | Result |
+|---|---|---|
+| Solidity suite | `npx hardhat test` | **117 passing** |
+| JS port vs SciPy goldens | `node backtest/validate-pricer.mjs` | **45/45**, max abs error 6.925e-8 |
+| Pricer properties (P in [0,1], monotone in spot/strike, sharpening toward expiry, edge identity, Kelly bounds) | `npm run test:fast` | **21 passing** |
+| Backtest, 3,000 candles, 5,620 checkpoints | `npm run backtest` | Gaussian Brier 0.2071 / log loss 0.7426; Student-t Brier 0.2007 / log loss 0.5898 |
+| Contracts on Shannon | `eth_getCode` on the 5 addresses below | all return bytecode |
+
+**Caveat on the Student-t gain.** The on-chain Student-t is a closed-form approximation that saturates at Φ(√(ν−1.5)) = 97.28% at ν = 5.2, so it can never output below 2.72% or above 97.28%. A control that simply clips the Gaussian to that same band scores Brier 0.2062 and log loss 0.6244. So roughly three quarters of the 20.6% log-loss improvement comes from bounding probabilities away from 0 and 1; only the rest, and most of the Brier gain, reflects the heavier tail shape. The approximation also differs from the exact t CDF (`scipy.stats.t`) by up to 0.047 (ν = 5.2). It is a bounded fat-tail adjustment, not an exact t distribution.
 
 ## The problem
 
@@ -117,7 +139,7 @@ API routes:
 
 When the chain returns no open windows, the Edge Radar hook falls back to demo windows from `frontend/src/lib/sample-data.ts`.
 
-A demonstrated live window produced **68.44% fair probability vs 67.90% book probability, +54 bps of edge**: the model's fair value sat above the quoted market probability for that window.
+The deployment ledger records a live window that produced **68.44% fair probability vs 67.90% book probability, +54 bps of edge**: the model's fair value sat above the quoted market probability for that window.
 
 ## How it works: one window, end to end
 
@@ -225,9 +247,11 @@ An empty book still yields a published fair value (`ok=true`, `reason=NoBook`), 
 
 ### Gaussian fair value
 
+The window is a cash-or-nothing digital: pays 1 if the terminal price is at or above the opening price. Under zero-drift geometric Brownian motion, `P(S_T >= S₀) = Φ(d₂)`. Because the payout is fixed at 1, buying YES at price `a` has expected value exactly `p − a`, so **edge = p − a**, **break-even win rate = a**, and the Kelly fraction is `f* = p − (1 − p)·a/(1 − a)` (0 when `p ≤ a`). `σ` is volatility over the full window (not annualised) and `τ` the fraction of the window remaining.
+
 Sigma treats the window's opening price as the strike. For opening price **S₀**, current price **S**, volatility **σ** and remaining time **τ**:
 
-$$d_2 = \frac{\ln(S / S_0) + \frac{1}{2}\sigma^2 \tau}{\sigma\sqrt{\tau}}$$
+$$d_2 = \frac{\ln(S / S_0) - \frac{1}{2}\sigma^2 \tau}{\sigma\sqrt{\tau}}$$
 
 $$\text{Fair Probability} = \Phi(d_2)$$
 
@@ -235,11 +259,11 @@ The implementation is cross-validated across Solidity (solady fixed-point + Abra
 
 ### Student-t fat-tail model (live on-chain, alongside Gaussian)
 
-A Student-t model with **ν ≈ 5.2** (method-of-moments estimate from the backtest) captures extreme moves the Gaussian misses:
+A Student-t model with **ν ≈ 5.2** (method-of-moments estimate from the backtest) is meant to capture extreme moves the Gaussian misses. The implemented CDF is an approximation, not the exact t CDF:
 
 $$F(x; \nu) \approx \Phi\left(x \cdot \sqrt{\frac{\nu - 1.5}{\nu + x^2 - 0.5}}\right)$$
 
-Every `refresh()` publishes `fairProbBps` (Gaussian) and `studentFairProbBps` (Student-t, owner-settable `nuWad`, default 5.2) from the same spot, volatility and time inputs. First live proof, same transaction: **33.63% Gaussian vs 35.64% Student-t** against a real 32.40% book (+123 bps vs +324 bps edge). That is one live sample, not a claim that Student-t always finds more edge.
+Every `refresh()` publishes `fairProbBps` (Gaussian) and `studentFairProbBps` (Student-t, owner-settable `nuWad`, default 5.2) from the same spot, volatility and time inputs. First live proof, same transaction: **33.63% Gaussian vs 35.64% Student-t** against a real 32.40% book (+123 bps vs +324 bps edge). That is one live sample, not a claim that Student-t always finds more edge. Caveat: the approximation saturates at Φ(√(ν−1.5)) = 97.28% (ν = 5.2) and is up to 0.047 away from `scipy.stats.t.cdf`; see [Measured results](#measured-results).
 
 ### Volatility
 
@@ -349,7 +373,7 @@ Other measured effects: Brier improves as expiry approaches (0.260 at τ > 0.8 d
 
 | Limitation | Impact | Status |
 |---|---|---|
-| Zero-drift GBM understates fat tails | Predicted 0.2% realises 14% | Student-t improves to 5.1%, live in SigmaOracle v2 |
+| Zero-drift GBM understates fat tails | Predicted 0.2% realises 14% | Student-t improves to 5.1%, live in SigmaOracle v2; part of that gain is probability clipping (see [Measured results](#measured-results)) |
 | Mark price, not signed oracle | Cross-checked 0.12% from perp index | Acceptable for testnet |
 | Builder fees disabled | Revenue model testable on mainnet only | Implemented, waiting |
 | Reactivity not delivering | 6 subscriptions tested, 0 callbacks | Fallback price pusher works |
@@ -366,7 +390,7 @@ Other measured effects: Brier improves as expiry approaches (0.260 at τ > 0.8 d
 |---|---|
 | Not an AI verdict product | Core is closed-form math (`Φ(d₂)` and Student-t CDF), validated against SciPy |
 | Not a claim of profitability | Publishes a measurable, auditable *signal* with realised results, losses included |
-| Not overstating what's live | Every number is backed by a transaction hash or marked as not yet proven |
+| Not overstating what's live | Deployment claims point to the ledger; address liveness was re-checked with `eth_getCode`. Ledger transactions and the 68.44% example were not re-verified |
 
 ## Where it stands
 
@@ -376,16 +400,6 @@ Other measured effects: Brier improves as expiry approaches (0.260 at τ > 0.8 d
 - Bot runs the full pipeline in DRY_RUN; real orders pending.
 - Shannon BTC binary markets now show real two-sided books, so Sigma competes on an existing book rather than seeding an empty one. `docs/INTEGRATION.md` §11 records the earlier empty-book observation.
 - Version `0.2.0-dev` ([`VERSION`](VERSION), [`CHANGELOG.md`](CHANGELOG.md)).
-
-### What Sigma delivers, by judging criterion
-
-| Criterion | What Sigma delivers |
-|---|---|
-| **Innovation** — a novel use of Event Contracts | On-chain fair probability using closed-form Black-Scholes — the only project computing the price itself rather than quoting, verifying, or wrapping it |
-| **Technical depth** — effective use of DreamDEX APIs/SDKs | 5 Solidity contracts, 117 Hardhat tests, triple-validated math (Solidity + TypeScript + SciPy), on-chain EWMA volatility, Gaussian + Student-t fair value both live, complete bot pipeline |
-| **User experience** — intuitive and compelling | Three.js 3D backgrounds, anime.js scroll animations, live Edge Radar with wallet connect, real-time fair value vs market price display |
-| **Ecosystem impact** — potential for adoption | Infrastructure layer any prediction market can read from — bots, frontends, and other contracts all consume the same on-chain signal |
-| **Clear communication** — problem, solution, demo | Live deployment on Shannon testnet, video walkthrough, reproducible repo, honest status table |
 
 ## Tech stack
 
@@ -402,46 +416,20 @@ Other measured effects: Brier improves as expiry approaches (0.260 at τ > 0.8 d
 | UI utilities | sonner, next-themes, date-fns, qrcode.react, lucide-react |
 | Hosting | Vercel |
 
-### Frontend animation (anime.js v4)
-
-| Feature | Where | Effect |
-|---|---|---|
-| `scrambleText` | Hero tagline | Cinematic decode |
-| `splitText` | Hero "Sigma" title | Letter-by-letter reveal with rotateX, stagger from center |
-| `onScroll` | Every section, card, list | Replaces manual IntersectionObserver |
-| `stagger from:"center"` | KPI cards, flashcards, stats | Center-outward reveal |
-| `stagger grid` | Edge Radar market grid | 2D grid-aware stagger (3 cols × N rows) |
-| `stagger jitter` | StaggerList, flashcards | Random ±40ms offset |
-| `spring()` | FlowDiagram nodes, stats cards, market cards | Physics-based easing |
-| `keyframes` | CTA buttons, stats hover | Multi-step bounce: scale 1→1.04→0.98→1.02→1 |
-| `createLayout` | Category filter | Layout-aware reorder animations |
-| `SVG drawable` | Data flow arrows | Progressive stroke drawing on scroll |
-| `lerp` / `damp` | Three.js hero camera | Smooth mouse-reactive camera interpolation |
-| `random()` | Live price ticker | Randomized price movement |
-| `onRender` | Solution formula | Progress-tracked glow pulse at 50% |
-| `createTimeline` | Three.js hero entrance | Sequenced globe, terrain, particles, rings |
-
-### 3D scenes (Three.js)
-
-| Scene | Page | Elements |
-|---|---|---|
-| **Wireframe Globe** | Landing | Icosahedron wireframe, 600 floating particles, wave terrain, 3 orbiting rings, 24 node points with connection lines |
-| **Radar Sweep** | Edge Radar | Rotating sweep, blip points, cross lines, particles |
-| **Calibration Bars** | Backtest | 3D bar chart, grid plane, diagonal reference line, particles |
-| **Crystal Octahedron** | Track Record | Rotating octahedron, 2 orbiting rings, win/loss columns, particles |
-
-All scenes use anime.js `createTimeline` for sequenced entrances and `lerp`/`damp` for camera movement.
+The frontend also uses anime.js v4 for scroll/stagger animation and Three.js for the background scenes on each page (`frontend/src/components/sigma/*-3d.tsx`); these are presentation only.
 
 ## Repository layout
 
 ```
+LICENSE, .env.example  MIT; placeholder env (no secrets)
+.github/workflows/   CI: pricer math (no install) + Hardhat suite
 contracts/           5 Solidity contracts + BinaryPricer library, interfaces, mocks, test harness
 test/                Hardhat tests (117) + test/vectors/binary_pricer.json (SciPy golden values)
 reference/           pricer_reference.py — SciPy source of truth
 scripts/             deploy, compile, diagnostics, price feed, cron subscription, auto-trade,
                      scheduled-runner, proof-of-work, Student-t redeploy
 bot/                 ec-sigma strategy, quantize, order, settle, dry-run and live runners
-backtest/            data fetch, JS pricer port, historical replay, calibration, results
+backtest/            data fetch, JS pricer port + tests, example.mjs, historical replay, calibration, results
 frontend/            Next.js 16 + React 19 Edge Radar terminal
 deployments/         somniaTestnet.json — the single address book
 proofs/              proof-of-work and scheduled-runner logs
@@ -491,7 +479,7 @@ node scripts/subscribe-cron-btc.mjs    # subscribe to BTC price feed
 node scripts/fallback-price-pusher.mjs # off-chain price pusher only
 ```
 
-Environment (`bot/.env.example`):
+Environment (`.env.example` at the root, `bot/.env.example` for the bot, `frontend/.env.example` for public endpoints):
 
 | Variable | Purpose | Default |
 |---|---|---|
@@ -506,13 +494,11 @@ Frontend reads `NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_RPC`, `NEXT_PUBLIC_DREAMDEX_
 ## Testing
 
 ```bash
-npx hardhat test                    # 117 tests: BinaryPricer, RealizedVol, SigmaReactiveVol,
-                                    # SigmaWindowRegistry, SigmaOracle, SigmaCron
-cd bot && npm test                  # quantization: 10/10
-node backtest/validate-pricer.mjs   # JS port vs SciPy vectors: 45/45, max abs error 6.925e-8
+npm run test:fast     # 21 tests: pricer properties + hand-checked values (11), bot quantization (10), then 45 SciPy vectors
+npm test              # 117 Hardhat tests: BinaryPricer, RealizedVol, SigmaReactiveVol, SigmaWindowRegistry, SigmaOracle, SigmaCron
 ```
 
-Golden vectors are regenerated with `python reference/pricer_reference.py` inside a project venv. The rule is strict TDD: the full suite green, with `BinaryPricer` matching SciPy, before anything is deployed.
+Golden vectors are regenerated with `python reference/pricer_reference.py` (needs SciPy). The three implementations (Solidity, JS port, SciPy reference) agree on one vector set: `BinaryPricer` is the deployed one, SciPy the source of truth. CI (`.github/workflows/ci.yml`) runs both commands on every push and pull request. The frontend and the scripts that talk to the network are not covered by tests.
 
 ## Deploying
 
@@ -542,4 +528,4 @@ None of these are architectural. The hard parts (on-chain vol measurement, close
 
 ## License
 
-MIT
+MIT, see [`LICENSE`](LICENSE).
