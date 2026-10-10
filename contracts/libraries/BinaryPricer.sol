@@ -188,8 +188,10 @@ library BinaryPricer {
     /// @notice Student-t cumulative distribution function.
     /// @dev Uses the Abramowitz & Stegun approximation (26.7.5):
     ///      F(x; ν) ≈ Φ(x · g) where g = √((ν - 1.5) / (ν + x² - 0.5))
-    ///      This is accurate to ~10⁻³ for ν > 2, which is sufficient for
-    ///      on-chain pricing (the Gaussian model's tail error was 10-100x worse).
+    ///      This is NOT an accurate t CDF in the tails: it saturates at
+    ///      Φ(√(ν - 1.5)) (97.3% at ν = 5.2) and differs from the exact CDF by up
+    ///      to ~0.047 near |x| = 2.3 (measured against scipy.stats.t). Use it as a
+    ///      bounded fat-tail adjustment to the Gaussian, not as an exact t CDF.
     ///
     /// @param xWad Point at which to evaluate, signed WAD.
     /// @param nuWad Degrees of freedom, WAD. Must be > 2 for finite variance.

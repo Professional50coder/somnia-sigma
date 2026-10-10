@@ -51,7 +51,9 @@ export function kellyFraction(modelProb, price) {
  * Student-t cumulative distribution function.
  * Uses the Abramowitz & Stegun approximation:
  * F(x; nu) ≈ Phi(x * g) where g = sqrt((nu - 1.5) / (nu + x^2 - 0.5))
- * Accurate to ~1e-3 for nu > 2.
+ * NOT an accurate t CDF in the tails: it saturates at Phi(sqrt(nu-1.5)) (97.3% at
+ * nu = 5.2) and differs from the exact CDF by up to ~0.047 near |x| = 2.3.
+ * Treat it as a bounded fat-tail adjustment, not as scipy.stats.t.
  */
 export function studentCdf(x, nu) {
   const sign = x < 0 ? -1 : 1;
