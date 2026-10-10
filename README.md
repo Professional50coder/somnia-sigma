@@ -538,7 +538,7 @@ None of these are architectural. The hard parts (on-chain vol measurement, close
 
 ---
 
-**Hitansh Gopani** · [hitansh.gopani@somaiya.edu](mailto:hitansh.gopani@somaiya.edu) · [@Hitansh54](https://x.com/Hitansh54) · [GitHub](https://github.com/Professional50coder)
+**Hitansh Gopani** · [@Hitansh54](https://x.com/Hitansh54) · [GitHub](https://github.com/Professional50coder)
 
 ## License
 

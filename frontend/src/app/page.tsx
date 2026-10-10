@@ -1034,7 +1034,6 @@ export default function LandingPage() {
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <a href="https://github.com/Professional50coder/somnia-sigma" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">GitHub</a>
             <a href="https://x.com/Hitansh54" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Twitter</a>
-            <a href="mailto:hitansh.gopani@somaiya.edu" className="hover:text-foreground transition-colors">Email</a>
           </div>
         </div>
       </footer>
