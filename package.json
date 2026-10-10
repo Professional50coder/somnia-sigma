@@ -7,10 +7,13 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "hardhat test",
+    "test:fast": "node --test backtest/pricer.test.mjs bot/src/quantize.test.mjs && node backtest/validate-pricer.mjs",
+    "backtest": "node backtest/run-backtest.mjs",
+    "example": "node backtest/example.mjs"
   },
   "keywords": [],
-  "author": "",
+  "author": "Hitansh Gopani",
   "license": "MIT",
   "type": "module",
   "dependencies": {
